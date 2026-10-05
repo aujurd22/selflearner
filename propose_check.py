@@ -230,12 +230,22 @@ def main():
         passed += r["ok"]
         failed += not r["ok"]
         if r["ok"]:
-            prev = r.get("code", "")[:1500]
+            prev = build_prev(r.get("code", ""), r.get("name", ""))
         tag = f"PASS {r.get('name')} (tries={r.get('tries', 1)})" if r["ok"] \
             else f"FAIL {r.get('why', '')[:120]}"
         print(f"[{rnd}/{rounds}] {r.get('file','?')} {tag}", flush=True)
     n1 = con.execute("SELECT COUNT(*) FROM thm").fetchone()[0]
     print(f"library: {n0} -> {n1} (+{n1-n0}), pass {passed} / fail {failed}")
+
+
+def build_prev(code, name):
+    """Reusable context for the next round: exact name + imports, so the
+    proposer can cite the fresh lemma without a namespace mismatch
+    (rounds 4-8 lesson: bare or wrong-namespace citations failed)."""
+    imports = "\n".join(ln for ln in code.split("\n")
+                        if ln.strip().startswith("import"))
+    return (f"The library grew this lemma (ALREADY ADMITTED — you may cite it):\n"
+            f"exact name: `{name}`\n{imports}\n```lean\n{code}\n```")
 
 
 if __name__ == "__main__":

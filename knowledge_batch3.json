@@ -1,0 +1,23 @@
+[
+  {"text": "数学归纳法：命题 P(n) 若 P(0) 成立且 P(k)→P(k+1)，则对所有自然数成立。Lean 对应：Nat.rec、induction tactic。强归纳与良序原理等价。", "lang": "zh"},
+  {"text": "反证法（归谬法）：假设结论不成立，推出矛盾则结论成立。Lean 对应：by_contra tactic、Classical.byContradiction。经典逻辑的核心推理模式。", "lang": "zh"},
+  {"text": "双射与逆映射：既是单射又是满射的映射存在逆映射。两个集合之间存在双射当且仅当它们基数相等。Lean 对应：Function.Bijective、Equiv（等价类型是 mathlib 处理双射的标准方式）。", "lang": "zh"},
+  {"text": "等价关系与商集：自反、对称、传递的关系可把集合划分为等价类，商集是所有等价类的集合。构造有理数、商群的基础。Lean 对应：Setoid、Quotient。", "lang": "zh"},
+  {"text": "偏序与全序：偏序满足自反对称传递（如子集关系）；全序还要求任意两元素可比（如实数大小）。格是任意两元素有上下确界的偏序集。Lean 对应：PartialOrder、LinearOrder、Lattice。", "lang": "zh"},
+  {"text": "可数集：能与自然数集或其子集建立双射的集合。有理数可数、实数不可数。无穷分两级以上是康托尔的革命。Lean 对应：Countable 类型类。", "lang": "zh"},
+  {"text": "范畴论基础：范畴由对象与态射构成，态射可复合且有单位元。对偶性（Op）与箭头方向反转。Lean 对应：CategoryTheory.Category、CategoryStruct。mathlib 的 CategoryTheory 目录逾十万行。", "lang": "zh"},
+  {"text": "函子与自然变换：函子是范畴间的映射（保复合与单位）；自然变换是函子间的映射（方块交换图）。范畴论的比较语言。Lean 对应：CategoryTheory.Functor、NatTrans。", "lang": "zh"},
+  {"text": "伴随函子：Hom(FX, Y) ≅ Hom(X, GY) 的函子对，自由-遗忘伴随是最基本例子。伴随捕获了数学中'自由构造'的普遍模式。Lean 对应：CategoryTheory.Adjunction。", "lang": "zh"},
+  {"text": "极限与余极限（范畴论）：泛性质刻画的'最佳逼近'对象——积、等化子、拉回都是极限的实例。 Lean 对应：CategoryTheory.Limits.Limit、Pullback。", "lang": "zh"},
+  {"text": "群的直积与商群：直积逐分量运算；商群对正规子群取陪集。同态基本定理把两者联系起来。Lean 对应：Prod.group、QuotientGroup。", "lang": "zh"},
+  {"text": "环与理想：环有加减乘；理想是吸收乘法的加法子群，是环论的'正规子群'。极大理想商出域，素理想商出整环。Lean 对应：Ring、Ideal、IsPrime。", "lang": "zh"},
+  {"text": "域与扩张：域是四则运算完好的代数结构。域扩张的次数 [L:K]，代数扩张与超越扩张。伽罗瓦理论的核心舞台。Lean 对应：Field、AdjoinRoot、IntermediateField。", "lang": "zh"},
+  {"text": "拓扑空间：开集族对任意并与有限交封闭。连续映射的原像是开集。现代分析的语言。Lean 对应：TopologicalSpace、Continuous。", "lang": "zh"},
+  {"text": "紧性：每个开覆盖有有限子覆盖。紧空间上连续函数取到最值；紧性与闭性在 Hausdorff 空间中相伴。Lean 对应：CompactSpace、IsCompact。", "lang": "zh"},
+  {"text": "连通性：不能分成两个非空不交开集的空间。介值定理是 [0,1] 连通性的直接推论。道路连通强于连通。Lean 对应：ConnectedSpace、Connected。", "lang": "zh"},
+  {"text": "度量空间与完备性：度量诱导拓扑；柯西序列收敛则完备。完备化把 Q 变成 R。压缩映射原理需要完备性。Lean 对应：MetricSpace、EMetricSpace、IsComplete。", "lang": "zh"},
+  {"text": "泛性质（universal property）：数学对象最深刻的刻画方式——不谈内部构造，只谈它与其他对象的映射关系。积、余积、核、极限都有泛性质。Lean 风格用 structure + HomIsUnique 表达。", "lang": "zh"},
+  {"text": "凸集与凸函数：集合内任意两点的连线仍在集合内；凸函数的图像在弦下方。Jensen 不等式、优化理论的地基。Lean 对应：Convex、ConcaveOn、StrictConvex。", "lang": "zh"},
+  {"text": "不动点与迭代：f(x)=x 的解。Banach 压缩原理保证唯一性和迭代收敛；布劳威尔保证存在性。自学习器的'知识库收敛'亦可类比：验证门是不动点判定。", "lang": "zh"},
+  {"text": "对偶原理：线性规划的对偶、射影几何的对偶、范畴论的对偶——数学中'换一个角度看同一结构'的普遍现象。对偶命题成对真假。", "lang": "zh"}
+]
