@@ -1,0 +1,22 @@
+[
+  {"text": "哥德巴赫猜想（Goldbach's conjecture）：任何大于 2 的偶数都可以表示为两个素数之和。至今未被证明，是数论最著名的未解问题之一。Lean 中相关形式化在 Mathlib.NumberTheory 下方可检索。", "lang": "zh"},
+  {"text": "Goldbach's conjecture: every even integer greater than 2 is the sum of two primes. It remains unproven and is one of the best-known open problems in number theory.", "lang": "en"},
+  {"text": "勾股定理（毕达哥拉斯定理）：直角三角形两条直角边长度的平方和等于斜边长度的平方，即 a² + b² = c²。Lean 对应：EuclideanGeometry.dist_sq_mul_dist_eq 或 sum_sq 相关定理。", "lang": "zh"},
+  {"text": "Pythagorean theorem: in a right triangle the square of the hypotenuse equals the sum of the squares of the other two sides, a² + b² = c².", "lang": "en"},
+  {"text": "中国剩余定理（孙子定理）：设 m₁, m₂ 互质，则同余方程组 x ≡ a₁ (mod m₁), x ≡ a₂ (mod m₂) 在模 m₁m₂ 下有唯一解。Lean 对应：Int.chineseRemainder。", "lang": "zh"},
+  {"text": "Chinese remainder theorem: if m₁ and m₂ are coprime, the system x ≡ a₁ (mod m₁), x ≡ a₂ (mod m₂) has a unique solution modulo m₁m₂. Lean: Int.chineseRemainder.", "lang": "en"},
+  {"text": "抽屉原理（鸽笼原理）：把 n+1 个物体放入 n 个抽屉，必有一个抽屉里至少有两个物体。Lean 对应：Finite.exists_ne_map_eq_of_card_lt。", "lang": "zh"},
+  {"text": "Pigeonhole principle: placing n+1 objects into n boxes forces some box to contain at least two objects. Lean: Finite.exists_ne_map_eq_of_card_lt.", "lang": "en"},
+  {"text": "算术-几何平均不等式（AM-GM）：非负实数的几何平均不超过其算术平均。Lean 对应：geom_mean_le_arith_mean_weighted。", "lang": "zh"},
+  {"text": "AM-GM inequality: the geometric mean of nonnegative reals is at most their arithmetic mean. Lean: geom_mean_le_arith_mean_weighted.", "lang": "en"},
+  {"text": "费马小定理：若 p 是素数且 a 与 p 互质，则 a^(p-1) ≡ 1 (mod p)。Lean 对应：Nat.ModEq.pow_card_sub_one_eq_one。", "lang": "zh"},
+  {"text": "Fermat's little theorem: if p is prime and gcd(a, p) = 1, then a^(p-1) ≡ 1 (mod p). Lean: Nat.ModEq.pow_card_sub_one_eq_one.", "lang": "en"},
+  {"text": "拉格朗日中值定理：连续可导函数在区间两端点间的某点处，切线斜率等于两端点连线的斜率。Lean 对应：exists_deriv_eq_slope。", "lang": "zh"},
+  {"text": "Mean value theorem: a differentiable function on an interval attains somewhere the slope of the secant joining its endpoints. Lean: exists_deriv_eq_slope.", "lang": "en"},
+  {"text": "欧拉公式：e^{iπ} + 1 = 0，连接五个最重要的数学常数。Lean 对应：Complex.exp_pi_mul_I。", "lang": "zh"},
+  {"text": "Euler's identity: e^{iπ} + 1 = 0, linking five fundamental constants of mathematics. Lean: Complex.exp_pi_mul_I.", "lang": "en"},
+  {"text": "素数有无穷多个：欧几里得在两千多年前证明。Lean 对应：Nat.infinite（Set.Infinite {p | Nat.Prime p}）。", "lang": "zh"},
+  {"text": "There are infinitely many primes, first proved by Euclid over two thousand years ago. Lean: Nat.prime_gt_one or Set.Infinite of Nat.Prime.", "lang": "en"},
+  {"text": "自学习器（self-learner）的准入三原则：写入必须经过验证（verified-write）、条目必须新颖（非重复）、陈述必须非平凡。对应本项目 mathlib.db 中的三层门。", "lang": "zh"},
+  {"text": "Self-learner admission rules: every write must be verified (machine-checked), novel (not a restatement), and non-trivial. Implemented as the three gates of mathlib.db.", "lang": "en"}
+]
