@@ -8,7 +8,7 @@
 
 | Section | Field | Proposal |
 | --- | --- | --- |
-| Contributor | Full name | DU JUNRONG |
+| Contributor | Full name | JUNRONG DU |
 | Contributor | Email | dududu9738@gmail.com |
 | Research Question | Repository URL | https://github.com/aujurd22/selflearner |
 | Research Question | Exact commit/tag | caf3940 (pinned at submission; history rewritten 2026-10-05 to strip large artifacts — the vector index and run logs ship as release assets instead) |
