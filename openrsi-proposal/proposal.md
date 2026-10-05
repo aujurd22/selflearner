@@ -8,8 +8,8 @@
 
 | Section | Field | Proposal |
 | --- | --- | --- |
-| Contributor | Full name | [contributor to provide] |
-| Contributor | Email | [contributor to provide] |
+| Contributor | Full name | DU JUNRONG |
+| Contributor | Email | dududu9738@gmail.com |
 | Research Question | Repository URL | https://github.com/aujurd22/selflearner (to be pushed; local HEAD 5ce2a28) |
 | Research Question | Exact commit/tag | 5ce2a28 (pinned at submission) |
 | Research Question | Scientific question | Under a fixed LLM-proposer budget, does a verifier-escorted propose-check loop with a three-gate admission funnel (Lean compilation + novelty + non-triviality) yield a higher rate of genuinely new, machine-verified lemmas against the Lean mathlib library than an ungated loop that only requires compilation? |
