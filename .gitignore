@@ -1,2 +1,8 @@
 mathlib4/
 mathlib.db
+vectors.npz
+runs/
+*.log
+m77_*.log
+m6_*.log
+m73_*.log
