@@ -121,7 +121,7 @@ def check_candidate(code):
     with open(CAND, "w", encoding="utf-8", newline="\n") as f:
         f.write(code + "\n")
     p = subprocess.run(
-        ["lake", "env", "lean", "Selflearner.lean"],
+        ["lake", "env", "lean", os.path.basename(CAND)],
         cwd=MATHLIB, capture_output=True, text=True, timeout=600,
         encoding="utf-8", errors="replace",
     )
