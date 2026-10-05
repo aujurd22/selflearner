@@ -84,9 +84,14 @@ def llm_adjudicate(ask_fn, stmt, neigh):
     prompt = (
         "You are a novelty judge for a Lean mathlib library.\n\n"
         f"Candidate lemma:\n{stmt}\n\n"
-        f"Closest existing theorems:\n{lst}\n\n"
-        "Is the candidate a restatement, trivial special case, or "
-        "notation-level variant of any existing theorem above? "
+        f"Closest existing theorems (hybrid retrieval):\n{lst}\n\n"
+        "Step 1: name the mathematical content of the candidate in plain "
+        "words (e.g. 'left additive identity for naturals', 'limit of a "
+        "constant sequence').\n"
+        "Step 2: is the candidate a restatement, renaming, or trivial "
+        "special case of any listed theorem — or of any standard theorem "
+        "its step-1 name corresponds to (think: does mathlib already have "
+        "the theorem your step-1 name describes)? "
         "Answer IMMEDIATELY with exactly one word RESTATEMENT or NOVEL, "
         "then one short sentence of reason.")
     reply = ask_fn(prompt)
