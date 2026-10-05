@@ -43,7 +43,11 @@ def lean_reverify(name, con):
     if not row:
         return False, "missing from library"
     stmt, proof = row
-    code = "import Mathlib.Tactic\n\n" + stmt + "\n" + proof + "\n"
+    # admit() stripped the proof's leading indent; `:= by` requires the
+    # tactic block indented, so re-indent every proof line by two spaces
+    proof_ind = "\n".join(("  " + ln if ln.strip() else ln)
+                          for ln in proof.split("\n"))
+    code = "import Mathlib.Tactic\n\n" + stmt + "\n" + proof_ind + "\n"
     f = os.path.join(MATHLIB, "JudgeReverify.lean")
     with open(f, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(code)
