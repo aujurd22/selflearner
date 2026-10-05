@@ -141,6 +141,11 @@ def semantic_dup(con, code, threshold=0.93):
     checks CANNOT separate novel from restated near 0.85. This gate only
     catches verbatim-level duplication; finer novelty needs an LLM
     adjudicator (queued as v2.5)."""
+    # SELFLEARNER_SEMANTIC=0: cloud boxes without HF access skip this leg
+    # (lexical gates still run; semantic adjudication moves to the local
+    # Judge). Avoids a per-round network exception loop.
+    if os.environ.get("SELFLEARNER_SEMANTIC", "1") != "1":
+        return False, "semantic leg disabled on this host"
     try:
         import numpy as np
         m = re.search(r"^(?:private\s+|protected\s+)*"
