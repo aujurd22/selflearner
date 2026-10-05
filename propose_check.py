@@ -138,6 +138,8 @@ def novelty_check(con, code):
     proof = code.split(":=", 1)[-1].strip() if ":=" in code else ""
     if re.fullmatch(r"exact\s+[A-Za-z_.][\w.'\s]*", proof) and len(proof) < 120:
         return False, "one-line exact restatement"
+    if re.search(r":\s*(True|False)\b\s*:?=", code):
+        return False, "trivial True/False statement"  # round-2 lesson: `fixed`
     return True, "ok"
 
 
