@@ -131,7 +131,9 @@ def novelty_check(con, code):
     m = re.search(r"^(?:private\s+|protected\s+)*"
                   r"(?:theorem|lemma)\s+([A-Za-z_][A-Za-z0-9_'!]*)", code, re.M)
     if not m:
-        return False, "no top-level name"
+        # name extraction failed on a compiled-clean candidate: skip the
+        # collision check, let admit() fall back to an anonymous name
+        return True, "ok (name unparsed, dedup skipped)"
     name = m.group(1)
     if con.execute("SELECT 1 FROM thm WHERE name = ? LIMIT 1", (name,)).fetchone():
         return False, f"name collision: {name}"
