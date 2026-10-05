@@ -66,3 +66,13 @@ whether auditable inputs raise downstream composition to nonzero.
 - Restatement/trivial gates stay on: today proved the proposer, not
   the gate, is the growth bottleneck — but a stronger proposer hooked
   into ungated admission would be unauditable.
+
+## Strong-proposer arm (OpenRSI evidence, planned 10-06 daytime)
+
+Night lesson (2026-10-06 03:30): drafting Lean candidates at 3am
+produced the same sorry-laden quality as glm-5.3-flash — the
+strong-proposer arm needs a rested proposer. Daytime protocol:
+design 5-8 candidates at cold-mathlib-crossover points (quartic mod
+16, factorial composite runs, digit-sum congruences — all verified
+gaps in local FTS probes), check novelty against the library first,
+then cloud-verify. A single verified NOVEL lemma beats ten retries.
