@@ -54,9 +54,15 @@ def main():
         for i in np.argsort(-(thm_vecs @ qv))[:35]:
             sem.append(f"thm:{thm_ids[i]}")
 
-    fused = rrf([r for r, _l in lex] + [sem])[:n]
-
+    fused = rrf([r for r, _l in lex] + [sem])
+    # interleave both kinds so 180k-theorem recall isn't buried by the
+    # (short, dense) knowledge cards
+    by_kind = {"thm": [], "know": []}
     for key in fused:
+        by_kind[key.split(":")[0]].append(key)
+    half = max(1, n // 2)
+    shown = (by_kind["know"][:half] + by_kind["thm"][: n - half])[:n]
+    for key in shown:
         label, rid = key.split(":", 1)
         rid = int(rid)
         if label == "know":
