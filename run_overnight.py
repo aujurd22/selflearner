@@ -23,9 +23,10 @@ RUNS = os.path.join(ROOT, "runs")
 
 
 def log_path():
+    tag = os.environ.get("OVERNIGHT_TAG", "")
     d = os.path.join(RUNS, "overnight_" + time.strftime("%Y%m%d"))
     os.makedirs(d, exist_ok=True)
-    return os.path.join(d, "log.jsonl")
+    return os.path.join(d, f"log{tag}.jsonl")
 
 
 def run(rounds=60, effort="low", deadline_h=9.0):
@@ -84,7 +85,9 @@ def run(rounds=60, effort="low", deadline_h=9.0):
     summary = dict(finished=time.strftime("%Y-%m-%d %H:%M"),
                    rounds=rnd, passed=passed, failed=failed,
                    thm_total=n, kb_total=kb)
-    with open(os.path.join(os.path.dirname(lp), "summary.json"), "w") as f:
+    with open(os.path.join(os.path.dirname(lp),
+                           f"summary{os.environ.get('OVERNIGHT_TAG', '')}.json"),
+              "w") as f:
         json.dump(summary, f, indent=1)
     print("OVERNIGHT DONE", summary, flush=True)
 

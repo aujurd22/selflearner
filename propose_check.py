@@ -26,7 +26,7 @@ from ingest import embed  # lazy model loader, shared with the index builder
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(ROOT, "mathlib.db")
 MATHLIB = os.path.join(ROOT, "mathlib4")
-CAND = os.path.join(MATHLIB, "Selflearner.lean")
+CAND = os.path.join(MATHLIB, os.environ.get("SELFLEARNER_CAND", "Selflearner.lean"))
 KEY_FILE = os.path.expanduser("~/.intuition/ark_key")
 
 sys.path.insert(0, r"D:\djr82\intuition-mechanism")
@@ -178,6 +178,11 @@ def retract(con, name, reason):
 
 
 def novelty_check(con, code):
+    """Gate stack G (compile already checked by caller). Off-switch for the
+    ungated baseline arm: NOVELTY_GATE=0 runs the same proposer with
+    compile-pass = admit."""
+    if os.environ.get("NOVELTY_GATE", "1") != "1":
+        return True, "ok (gate off)"
     """Lean guarantees TRUE; this gate approximates NEW.
 
     Rejects (a) name collisions, (b) one-line `exact <existing>` restatements
@@ -216,11 +221,13 @@ def admit(con, code, file_, log):
                 seen_by = True
         else:
             proof_lines.append(ln)
+    arm = os.environ.get("SELFLEARNER_ARM", "gated")
     con.execute(
         """INSERT INTO thm(name,kind,statement,proof,docstring,attrs,file,line)
-           VALUES(?,'lemma',?,?,?,'provenance=proposed',?,0)""",
+           VALUES(?,'lemma',?,?,?,'provenance=proposed-'||?,?,0)""",
         (name, "\n".join(stmt_lines).strip(), "\n".join(proof_lines).strip(),
-         f"Selflearner-proposed (verified {time.strftime('%Y-%m-%d')})", file_),
+         f"Selflearner-proposed (verified {time.strftime('%Y-%m-%d')})",
+         file_, arm),
     )
     rowid = con.execute("SELECT last_insert_rowid()").fetchone()[0]
     con.execute("INSERT INTO thm_fts(rowid,name,statement,proof,docstring) "
