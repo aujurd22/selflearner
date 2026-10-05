@@ -127,8 +127,17 @@ def llm_adjudicate(ask_fn, stmt, neigh):
         "Answer IMMEDIATELY with exactly one word RESTATEMENT or NOVEL, "
         "then one short sentence of reason.")
     reply = ask_fn(prompt)
-    word = reply.strip().split()[0].upper() if reply.strip() else "NOVEL"
-    return ("RESTATEMENT" in word, reply.strip()[:200])
+    # the v2.5 prompt asks for a naming step first -- the verdict word may
+    # not be the first token; scan the whole reply, RESTATEMENT wins ties
+    # (conservative: an ambiguous case is treated as restated)
+    up = reply.upper()
+    if "RESTATEMENT" in up:
+        is_rest = True
+    elif "NOVEL" in up:
+        is_rest = False
+    else:
+        is_rest = True  # no recognizable verdict = assume restated
+    return (is_rest, reply.strip()[:200])
 
 
 def main():
@@ -180,6 +189,7 @@ def main():
         report.append("")
     out = "\n".join(report)
     print(out)
+    os.makedirs(RUNS_DIR, exist_ok=True)
     with open(os.path.join(RUNS_DIR, "judge_report.md"), "w",
               encoding="utf-8") as f:
         f.write(out)
