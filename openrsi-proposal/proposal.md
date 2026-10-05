@@ -10,8 +10,8 @@
 | --- | --- | --- |
 | Contributor | Full name | DU JUNRONG |
 | Contributor | Email | dududu9738@gmail.com |
-| Research Question | Repository URL | https://github.com/aujurd22/selflearner (to be pushed; local HEAD 5ce2a28) |
-| Research Question | Exact commit/tag | 5ce2a28 (pinned at submission) |
+| Research Question | Repository URL | https://github.com/aujurd22/selflearner |
+| Research Question | Exact commit/tag | caf3940 (pinned at submission; history rewritten 2026-10-05 to strip large artifacts — the vector index and run logs ship as release assets instead) |
 | Research Question | Scientific question | Under a fixed LLM-proposer budget, does a verifier-escorted propose-check loop with a three-gate admission funnel (Lean compilation + novelty + non-triviality) yield a higher rate of genuinely new, machine-verified lemmas against the Lean mathlib library than an ungated loop that only requires compilation? |
 | Research Question | Why scientific research | Falsifiable matched comparison: identical proposer model, seed domains, and budget; the only manipulated component is the admission gate stack. The loop is change-run-observe-update (proposer receives compile errors and revises). Knowledge gained: whether verifier-gated admission increases net new-knowledge accumulation rate, or whether the gates merely filter without changing proposal quality — directly relevant to recursive-self-improvement claims that rest on self-generated knowledge. |
 | Research Question | Starting environment and artifacts | selflearner repository: mathlib4 sources pinned to the same revision as the built environment; SQLite library of 181,316 parsed theorems (66,217 with tactic proofs) + FTS5 and multilingual-embedding indexes; lean toolchain v4.35.0-rc3 with full mathlib olean cache; proposer client (Volcano ARK, glm-5.3-flash, effort=low). All assets are in the repository or publicly downloadable (mathlib4 via GitHub, model weights via HF mirror). |
