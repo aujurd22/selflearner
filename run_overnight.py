@@ -30,6 +30,19 @@ def log_path():
 
 
 def run(rounds=60, effort="low", deadline_h=9.0):
+    call_budget = int(os.environ.get("FLYLOOP_CALL_BUDGET", "200"))
+    call_count = [0]
+    orig_ask_effort = pc.ask_effort
+
+    def counted_ask(prompt, effort=effort, temperature=0.4, max_tokens=8192):
+        call_count[0] += 1
+        return orig_ask_effort(prompt, effort=effort,
+                               temperature=temperature,
+                               max_tokens=max_tokens)
+
+    def budget_left():
+        return call_budget - call_count[0]
+
     run_seed = random.randrange(2**32)
     random.seed(run_seed)  # flyloop RUNSEED: domain choices must reproduce
     ask = pc.load_llm()
@@ -51,10 +64,11 @@ def run(rounds=60, effort="low", deadline_h=9.0):
     with open(lp, "a", encoding="utf-8") as f:
         f.write(json.dumps(dict(seed=run_seed, resumed=done,
                                 t=time.strftime("%H:%M:%S"))) + "\n")
-    while rnd < rounds and (time.time() - t0) < deadline_h * 3600:
+    while (rnd < rounds and (time.time() - t0) < deadline_h * 3600
+           and budget_left() > 0):
         rnd += 1
         try:
-            r = pc.one_round(con, ask, rnd, prev, ask_fn)
+            r = pc.one_round(con, ask, rnd, prev, ask_fn or counted_ask)
         except Exception as e:  # noqa: BLE001
             r = dict(rnd=rnd, ok=False, why=f"EXC {e!r}"[:300])
         passed += r["ok"]
@@ -89,6 +103,8 @@ def run(rounds=60, effort="low", deadline_h=9.0):
                            f"summary{os.environ.get('OVERNIGHT_TAG', '')}.json"),
               "w") as f:
         json.dump(summary, f, indent=1)
+    summary["llm_calls"] = call_count[0]
+    summary["call_budget"] = call_budget
     print("OVERNIGHT DONE", summary, flush=True)
 
 

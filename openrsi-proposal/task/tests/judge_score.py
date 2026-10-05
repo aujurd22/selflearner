@@ -68,17 +68,41 @@ def neighbors(con, stmt, k=5):
     return out
 
 
+ALLOWED_AXIOMS = {"propext", "Classical.choice", "Quot.sound",
+                  "Lean.ofReduceBool"}
+
+
+def _decl_name(stmt):
+    m = re.search(r"(?:theorem|lemma)\s+([A-Za-z_][A-Za-z0-9_']*)", stmt)
+    return m.group(1) if m else "Cand"
+
+
 def lean_ok(stmt, proof, workdir="/tmp/judge"):
+    """Compile + axiom policy: the candidate must compile AND depend only
+    on Lean's standard Prover axioms. Blocks the axiom-farm escape
+    (axiom foo : P / theorem := foo compiles but proves nothing)."""
     os.makedirs(workdir, exist_ok=True)
     proof_ind = "\n".join(("  " + ln if ln.strip() else ln)
                           for ln in proof.split("\n"))
+    name = _decl_name(stmt)
     with open(f"{workdir}/Cand.lean", "w", encoding="utf-8",
               newline="\n") as f:
-        f.write("import Mathlib.Tactic\n\n" + stmt + "\n" + proof_ind + "\n")
+        f.write("import Mathlib.Tactic\n\n" + stmt + "\n" + proof_ind +
+                "\n#print axioms " + name + "\n")
     p = subprocess.run(["lake", "env", "lean", "Cand.lean"], cwd=MATHLIB,
                        capture_output=True, text=True, timeout=600,
                        encoding="utf-8", errors="replace")
-    return p.returncode == 0, (p.stdout + p.stderr)[-300:]
+    out = p.stdout + p.stderr
+    if p.returncode != 0:
+        return False, out[-300:]
+    m = re.search(r"'[^']+' depends on axioms: \[(.*)\]", out)
+    if m:
+        used = {a.strip().strip("'") for a in m.group(1).split(",")}
+        bad = used - ALLOWED_AXIOMS
+        if bad:
+            return False, f"nonstandard axioms: {sorted(bad)}"
+        return True, ""
+    return False, "axiom report missing"
 
 
 def adjudicate(ask_fn, stmt, neigh):
