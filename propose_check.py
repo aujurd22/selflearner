@@ -29,7 +29,7 @@ MATHLIB = os.path.join(ROOT, "mathlib4")
 CAND = os.path.join(MATHLIB, os.environ.get("SELFLEARNER_CAND", "Selflearner.lean"))
 KEY_FILE = os.path.expanduser("~/.intuition/ark_key")
 
-sys.path.insert(0, r"D:\djr82\intuition-mechanism")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # vendored llm_client
 
 
 def load_llm():
