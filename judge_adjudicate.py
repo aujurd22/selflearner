@@ -28,33 +28,65 @@ MATHLIB = pc.MATHLIB
 
 
 def load_arm(tag):
-    lp = os.path.join(RUNS_DIR, f"log{tag}.jsonl")
-    recs = [json.loads(x) for x in open(lp, encoding="utf-8")
-            if x.strip().startswith('{"rnd')]
-    return [r for r in recs if r.get("ok")]
+    """Arms from the library itself: admit() stamped the arm into attrs
+    (provenance=proposed / proposed-ungated). The original JSONL logs were
+    lost in the runs/ cleanup -- the library IS the record."""
+    con = sqlite3.connect(pc.DB)
+    pat = "%provenance=proposed-ungated%" if tag == "_ungated"         else "%provenance=proposed%"
+    rows = con.execute(
+        "SELECT name, statement, proof FROM thm WHERE attrs LIKE ? "
+        "ORDER BY id", (pat,)).fetchall()
+    return [dict(name=n, statement=st, proof=pf) for n, st, pf in rows]
 
 
 RUNS_DIR = os.path.join(ROOT, "runs", "overnight_" + time.strftime("%Y%m%d"))
 
 
-def lean_reverify(name, con):
-    row = con.execute(
-        "SELECT statement, proof FROM thm WHERE name=?", (name,)).fetchone()
-    if not row:
-        return False, "missing from library"
-    stmt, proof = row
-    # admit() stripped the proof's leading indent; `:= by` requires the
-    # tactic block indented, so re-indent every proof line by two spaces
-    proof_ind = "\n".join(("  " + ln if ln.strip() else ln)
-                          for ln in proof.split("\n"))
-    code = "import Mathlib.Tactic\n\n" + stmt + "\n" + proof_ind + "\n"
+def lean_reverify_batch(names, con):
+    """One lake invocation for all lemmas (N cold starts were timing
+    out under local load). Returns {name: (ok, log_tail)}."""
+    blocks = []
+    for name in names:
+        row = con.execute(
+            "SELECT statement, proof FROM thm WHERE name=?",
+            (name,)).fetchone()
+        if not row:
+            blocks.append((name, None, None))
+            continue
+        stmt, proof = row
+        nl = chr(10)
+        proof_ind = nl.join(("  " + ln if ln.strip() else ln)
+                            for ln in proof.split(nl))
+        blocks.append((name, stmt, proof_ind))
+    nl = chr(10)
+    body = "import Mathlib.Tactic" + nl + nl
+    for name, stmt, proof_ind in blocks:
+        if stmt is None:
+            continue
+        body += (f"-- BEGIN {name}" + nl + stmt + nl + proof_ind
+                 + nl + "-- END" + nl + nl)
     f = os.path.join(MATHLIB, "JudgeReverify.lean")
-    with open(f, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(code)
-    p = subprocess.run(["lake", "env", "lean", "JudgeReverify.lean"],
-                       cwd=MATHLIB, capture_output=True, text=True,
-                       timeout=600, encoding="utf-8", errors="replace")
-    return p.returncode == 0, (p.stdout + p.stderr)[-200:]
+    with open(f, "w", encoding="utf-8", newline="") as fh:
+        fh.write(body)
+    try:
+        p = subprocess.run(["lake", "env", "lean", "JudgeReverify.lean"],
+                           cwd=MATHLIB, capture_output=True, text=True,
+                           timeout=1200, encoding="utf-8", errors="replace")
+        out = p.stdout + p.stderr
+    except subprocess.TimeoutExpired:
+        out = "TIMEOUT"
+    res = {}
+    for name, stmt, proof_ind in blocks:
+        if stmt is None:
+            res[name] = (False, "missing from library")
+        elif out == "TIMEOUT":
+            res[name] = (False, "TIMEOUT (skipped, inconclusive)")
+        elif name in out:
+            res[name] = (False, out[out.index(name):][:200])
+        else:
+            res[name] = (True, "")
+    return res
+
 
 
 def neighbors(con, stmt, k=3, exclude=None):
@@ -106,11 +138,13 @@ def main():
     ask_fn = lambda p: pc.ask_effort(p, effort="low")  # noqa: E731
     report = ["# Judge report — gated vs ungated", ""]
     rows = []
+    all_names = [r["name"] for arm in arms.values() for r in arm]
+    reverify = lean_reverify_batch(all_names, con)
     for arm, admitted in arms.items():
         verified = novel = trivial = restated = 0
         detail = []
         for r in admitted:
-            name = r.get("name", "")
+            name = r["name"]
             row = con.execute(
                 "SELECT statement, proof, id FROM thm WHERE name=?",
                 (name,)).fetchone()
@@ -118,7 +152,7 @@ def main():
                 detail.append((name, "MISSING", "-", "-"))
                 continue
             stmt_full, _proof, tid = row
-            ok, log = lean_reverify(name, con)
+            ok, log = reverify.get(name, (False, "no reverify"))
             verified += ok
             if re.search(r":\s*(True|False)\b\s*:?=", stmt_full):
                 trivial += 1
