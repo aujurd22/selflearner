@@ -13,11 +13,15 @@ Round structure:
 Usage: python propose_check.py [n_rounds]
 """
 import os
+import random
 import re
 import sqlite3
 import subprocess
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ingest import embed  # lazy model loader, shared with the index builder
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(ROOT, "mathlib.db")
@@ -91,12 +95,19 @@ Answer with ONLY a fenced ```lean block containing the full lemma,
 including its `import Mathlib.Tactic` line. No sorry, no admit."""
 
 
+_FILES = None
+
+
 def sample_seeds(con, k=4):
-    """Pick k theorems from one file (coherent topic) that have proofs."""
-    file_, = con.execute(
-        """SELECT file FROM thm WHERE proof != '' AND kind='theorem'
-           GROUP BY file HAVING COUNT(*) >= 20 ORDER BY RANDOM() LIMIT 1"""
-    ).fetchone()
+    """Pick k theorems from one file (coherent topic) that have proofs.
+
+    Domain choice goes through python's random so a run seed reproduces."""
+    global _FILES
+    if _FILES is None:
+        _FILES = [r[0] for r in con.execute(
+            "SELECT file FROM thm WHERE proof != '' AND kind='theorem' "
+            "GROUP BY file HAVING COUNT(*) >= 20")]
+    file_ = random.choice(_FILES)
     rows = con.execute(
         """SELECT name, statement, SUBSTR(proof, 1, 300) FROM thm
            WHERE file = ? AND proof != '' ORDER BY RANDOM() LIMIT ?""",
@@ -122,6 +133,50 @@ def check_candidate(code):
     return ok, log
 
 
+def semantic_dup(con, code, threshold=0.93):
+    """Novelty channel N (intuition P205): reject near-verbatim duplicates
+    even under a different name. NOTE (2026-10-05 measurement): a genuine
+    new lemma and its same-topic neighbors sit at ~0.85 cosine while a
+    paraphrased restatement sits at ~0.84 — single-threshold embedding
+    checks CANNOT separate novel from restated near 0.85. This gate only
+    catches verbatim-level duplication; finer novelty needs an LLM
+    adjudicator (queued as v2.5)."""
+    try:
+        import numpy as np
+        m = re.search(r"^(?:private\s+|protected\s+)*"
+                      r"(?:theorem|lemma)\s+[A-Za-z_][A-Za-z0-9_'!]*([^:]*)"
+                      r":\s*(.+?)(?::=|$)", code, re.M | re.S)
+        if not m:
+            return False, ""
+        stmt = " ".join((m.group(1) + m.group(2)).split())[:512]
+        v = embed(stmt)
+        z = np.load(os.path.join(ROOT, "vectors.npz"))
+        tv = z["thm_vecs"]
+        if not len(tv):
+            return False, ""
+        sims = tv @ v
+        top = float(sims.max())
+        if top > threshold:
+            tid = int(z["thm_ids"][int(sims.argmax())])
+            name, = con.execute("SELECT name FROM thm WHERE id=?", (tid,)).fetchone()
+            return True, f"semantic dup {top:.3f} of {name}"
+        return False, f"max cos {top:.3f}"
+    except Exception as e:  # noqa: BLE001 — gate must never crash the loop
+        return False, f"gate-error {e!r}"[:80]
+
+
+def retract(con, name, reason):
+    """Tombstoned retraction (flymemory L4: lineage must be explicit)."""
+    con.execute("""CREATE TABLE IF NOT EXISTS retracted(
+        name TEXT PRIMARY KEY, reason TEXT, t TEXT DEFAULT (datetime('now')))""")
+    con.execute("DELETE FROM thm_fts WHERE rowid IN "
+                "(SELECT id FROM thm WHERE name=?)", (name,))
+    con.execute("DELETE FROM thm WHERE name=?", (name,))
+    con.execute("INSERT OR REPLACE INTO retracted(name, reason) VALUES(?,?)",
+                (name, reason))
+    con.commit()
+
+
 def novelty_check(con, code):
     """Lean guarantees TRUE; this gate approximates NEW.
 
@@ -142,6 +197,9 @@ def novelty_check(con, code):
         return False, "one-line exact restatement"
     if re.search(r":\s*(True|False)\b\s*:?=", code):
         return False, "trivial True/False statement"  # round-2 lesson: `fixed`
+    dup, info = semantic_dup(con, code)
+    if dup:
+        return False, info
     return True, "ok"
 
 

@@ -10,6 +10,7 @@ Usage:
 """
 import json
 import os
+import random
 import sqlite3
 import sys
 import time
@@ -28,6 +29,8 @@ def log_path():
 
 
 def run(rounds=60, effort="low", deadline_h=9.0):
+    run_seed = random.randrange(2**32)
+    random.seed(run_seed)  # flyloop RUNSEED: domain choices must reproduce
     ask = pc.load_llm()
     ask_fn = (lambda p: pc.ask_effort(p, effort=effort)) if effort != "minimal" \
         else None
@@ -40,7 +43,13 @@ def run(rounds=60, effort="low", deadline_h=9.0):
     t0 = time.time()
     prev = None
     passed = failed = 0
+    streak = 0
+    fail_first = {}
     rnd = done
+    print(f"run_seed={run_seed} resume_from={done}", flush=True)
+    with open(lp, "a", encoding="utf-8") as f:
+        f.write(json.dumps(dict(seed=run_seed, resumed=done,
+                                t=time.strftime("%H:%M:%S"))) + "\n")
     while rnd < rounds and (time.time() - t0) < deadline_h * 3600:
         rnd += 1
         try:
@@ -51,9 +60,22 @@ def run(rounds=60, effort="low", deadline_h=9.0):
         failed += not r["ok"]
         if r["ok"]:
             prev = pc.build_prev(r.get("code", ""), r.get("name", ""))
+            streak = 0
+        else:
+            streak += 1
+            bucket = r.get("why", "")[:40].split(":")[0]
+            fail_first[bucket] = fail_first.get(bucket, 0) + 1
+            if streak >= 4:  # dead-regime exit: force a fresh domain
+                random.shuffle(pc._FILES)
+                streak = 0
+                r["domain_switch"] = True
         r["t"] = time.strftime("%H:%M:%S")
         with open(lp, "a", encoding="utf-8") as f:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        if rnd % max(1, rounds // 4) == 0:  # flyloop: diag at quarter marks
+            print(f"[diag {100*rnd//rounds}%] pass={passed} fail={failed} "
+                  f"top_fail={max(fail_first, key=fail_first.get, default='-')}",
+                  flush=True)
         tag = (f"PASS {r.get('name')} tries={r.get('tries', 1)}"
                if r["ok"] else f"FAIL {r.get('why', '')[:100]}")
         print(f"[{rnd}] {r.get('file', '?')} {tag}", flush=True)
