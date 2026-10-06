@@ -61,3 +61,33 @@ made explicit in the Evaluation rows.
 7. **Non-triviality placement clarified**: trivial lemmas are gated
    pre-admission and reported as a secondary metric; they never enter
    the primary-score set.
+
+## v2 RESUBMISSION NOTE (2026-10-06)
+
+This revision addresses all five hard-gate failures of the 2026-10-05
+automated review:
+
+1. **Source Repository**: pinned commit updated to 102f666 (contains
+   judge_adjudicate.py, judge_score.py with the axiom policy, and full
+   pilot logs under docs/pilot_logs/ — the runs/ paths that returned
+   404 are resolved); vectors.npz shipped as release asset vectors-v1
+   with sha256.
+2. **Metric**: 200-call budget now enforced by an in-runner counter
+   (FLYLOOP_CALL_BUDGET); retry/transport accounting specified;
+   arm-strategy matching declared (frozen identical across arms).
+3. **Evaluation Integrity**: #print axioms dependency check added to
+   the Judge scorer (only Lean's four standard Prover axioms allowed);
+   judge scorer shipped in task/tests/; hidden probe set role defined
+   (post-hoc audit of judge reliability, never gates admission);
+   judge_adjudicate.py's role clarified (development-time adjudication
+   protocol; the submitted task ships judge_score.py as the scorer).
+4. **Data/Network**: the novelty adjudicator's model, endpoint, and
+   key-injection boundary fully declared (Judge-side only).
+5. **Readiness**: all contributor-owned decisions now explicit in the
+   Evaluation rows (call accounting, triviality placement, arm
+   matching, axiom policy, probe role, key injection).
+
+The axiom policy has been battle-tested: 6 SL-candidate lemmas from
+the pilot were re-verified under the policy (6/6 pass, zero
+non-standard axioms) — see axiom_batch.sh and
+axioms_full_report.txt in the repository.
