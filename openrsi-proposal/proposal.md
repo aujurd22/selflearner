@@ -98,3 +98,9 @@ axioms_full_report.txt in the repository.
 The 2026-10-06 02:22 rubric review failed before completion (no error
 details emitted). This edit triggers a retry of the identical v2
 proposal — no content changes.
+
+## Retry #2 note
+
+Retrying the identical v2 proposal after two incomplete review runs
+(2026-10-06 02:22 and 11:33 UTC, both 'failed before completion' with
+no error details emitted). No content changes.
