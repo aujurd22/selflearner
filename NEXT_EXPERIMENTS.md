@@ -76,3 +76,20 @@ design 5-8 candidates at cold-mathlib-crossover points (quartic mod
 16, factorial composite runs, digit-sum congruences — all verified
 gaps in local FTS probes), check novelty against the library first,
 then cloud-verify. A single verified NOVEL lemma beats ten retries.
+
+## Strong-proposer night results (2026-10-06 05:30)
+
+- **C1 VERIFIED** (odd-sum = square, cloud mathlib): first verified lemma
+- **C4 VERIFIED** (odd-square gap, additive form): second verified lemma
+- **C2 ABANDONED**: Nat.tri does not exist in mathlib (wrong lemma name
+  from memory — exactly the class of error the novelty judge exists to
+  catch, now aimed at ourselves)
+- **C3 ABANDONED**: rw anchor mismatch after sum_range_succ (induction
+  hypothesis pattern break) — daytime fix: rw [ih] before expanding the
+  successor sum
+- **Night total: 2 verified / 3 attempted / 1 abandoned-then-replaced**
+- Interim judge run on the 18 cloud-SL lemmas: ~1-2 possibly novel,
+  rest textbook restatements — strong-proposer arm continues tomorrow
+
+Night lesson: even the strong proposer produces sorry-laden proofs at
+3am; candidate quality follows proposer rest state.
