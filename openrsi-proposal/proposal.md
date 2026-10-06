@@ -32,7 +32,7 @@ made explicit in the Evaluation rows.
 | Workspace | May the agent use external services? | **Exactly two, both declared**: (1) the Volcano ARK LLM API (proposer, glm-5.3-flash effort=low) — purpose: candidate-lemma generation and compile-error revision; boundary: prompt content = seed theorem statements + prior-round feedback only; interface: ARK Responses API + runtime-injected key. (2) The **novelty adjudication API used only by the Judge, not by the agent** (a different model family on the same ARK endpoint, judge-side key injected only into the Judge container at runtime via a contributor-held secret, never exposed to the agent or present in any Work-side file) — this is a Judge-side evaluation dependency declared here to resolve the single-service ambiguity; it performs no Work-side compute. |
 | Workspace | May the agent construct or collect additional data? | No additional external data. The agent may only append lemmas derived from the proposer. |
 | Workspace | Leakage and reward-hacking safeguards | Seed domains sampled from files disjoint from any hint material; the proposer never sees Judge verdicts; the restatement probe set held out; verifier, gate code, and judge scorer read-only inside the Work container; snapshot diff audit on submission. |
-| Theoretical & empirical foundations | Four sibling repositories supply the design rationale: flymemory (form-law, anchoring, eviction — motivating hybrid retrieval and the external-library architecture); intuition-mechanism (shadow unification theorem, CV gate, evidence hierarchy — motivating the axiom policy and three-gate funnel); mbn (fixation threshold 16-32 reps, spacing 20x, retention fragile, no savings — motivating the external-library architecture); flypoet (k-WTA U-curve 25%, dual-architecture). Details in each repo; see EXPOSURE_FINDINGS.md in this repo. |
+| Theoretical & empirical foundations | flymemory (form law, anchoring, eviction), intuition-mechanism (shadow theorem, CV gate, evidence hierarchy), mbn (fixation/spacing/retention/no-savings), flypoet (k-WTA 25%) -- gate design rationale and cross-scale corroboration; see repos |
 | Compute Feasibility | Compute resources per single experiment run | CPU-only. Work: 1 node, 4 cores, 16 GB RAM, 0 GPUs (Lean verification of one file peaks ~2 GB). Judge: same profile, ~2 GB peak. External: proposer + judge API calls only (no GPU compute). Fits one physical node, zero GPUs. |
 | Compute Feasibility | Estimated runtime per single experiment run | **Revised with the call-budget semantics the review requested**: at the observed ~6 min/round (1-3 calls each) and a 200-call budget, one loop = 200 calls ≈ 20 rounds ≈ 2 h Work + 0.5 h Judge ≈ 2.5 h → ~9.6 loops in 24 h, ~19.2 in 48 h (review's corrected figure adopted). ≥10-loop minimum met in 48 h; if the 24h figure is required instead, the budget is scaled to 150 calls (15 rounds, 12 loops in 24 h). Basis: same-day measurement of two 20-round pilots. |
 | Compute Feasibility | Early-stopping signals / lower-cost proxy experiments | If both arms produce zero Judge-verified lemmas for 3 consecutive loops, the seed-domain sampler is re-drawn (recorded); otherwise run to budget. |
@@ -63,44 +63,3 @@ made explicit in the Evaluation rows.
    pre-admission and reported as a secondary metric; they never enter
    the primary-score set.
 
-## v2 RESUBMISSION NOTE (2026-10-06)
-
-This revision addresses all five hard-gate failures of the 2026-10-05
-automated review:
-
-1. **Source Repository**: pinned commit updated to 102f666 (contains
-   judge_adjudicate.py, judge_score.py with the axiom policy, and full
-   pilot logs under docs/pilot_logs/ — the runs/ paths that returned
-   404 are resolved); vectors.npz shipped as release asset vectors-v1
-   with sha256.
-2. **Metric**: 200-call budget now enforced by an in-runner counter
-   (FLYLOOP_CALL_BUDGET); retry/transport accounting specified;
-   arm-strategy matching declared (frozen identical across arms).
-3. **Evaluation Integrity**: #print axioms dependency check added to
-   the Judge scorer (only Lean's four standard Prover axioms allowed);
-   judge scorer shipped in task/tests/; hidden probe set role defined
-   (post-hoc audit of judge reliability, never gates admission);
-   judge_adjudicate.py's role clarified (development-time adjudication
-   protocol; the submitted task ships judge_score.py as the scorer).
-4. **Data/Network**: the novelty adjudicator's model, endpoint, and
-   key-injection boundary fully declared (Judge-side only).
-5. **Readiness**: all contributor-owned decisions now explicit in the
-   Evaluation rows (call accounting, triviality placement, arm
-   matching, axiom policy, probe role, key injection).
-
-The axiom policy has been battle-tested: 6 SL-candidate lemmas from
-the pilot were re-verified under the policy (6/6 pass, zero
-non-standard axioms) — see axiom_batch.sh and
-axioms_full_report.txt in the repository.
-
-## Review retry note
-
-The 2026-10-06 02:22 rubric review failed before completion (no error
-details emitted). This edit triggers a retry of the identical v2
-proposal — no content changes.
-
-## Retry #2 note
-
-Retrying the identical v2 proposal after two incomplete review runs
-(2026-10-06 02:22 and 11:33 UTC, both 'failed before completion' with
-no error details emitted). No content changes.
