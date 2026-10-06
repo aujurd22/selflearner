@@ -91,3 +91,9 @@ The axiom policy has been battle-tested: 6 SL-candidate lemmas from
 the pilot were re-verified under the policy (6/6 pass, zero
 non-standard axioms) — see axiom_batch.sh and
 axioms_full_report.txt in the repository.
+
+## Review retry note
+
+The 2026-10-06 02:22 rubric review failed before completion (no error
+details emitted). This edit triggers a retry of the identical v2
+proposal — no content changes.
