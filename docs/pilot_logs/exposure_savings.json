@@ -1,0 +1,21 @@
+{
+ "baseline_r64": {
+  "train_acc1": 160,
+  "held_acc1": 0,
+  "train": 1.0,
+  "held": 0.0
+ },
+ "after_washout": {
+  "train_acc1": 0,
+  "held_acc1": 0,
+  "train": 0.0,
+  "held": 0.0
+ },
+ "after_relearn": {
+  "train_acc1": 0,
+  "held_acc1": 0,
+  "train": 0.0,
+  "held": 0.0
+ },
+ "note": "savings paradigm v1"
+}

@@ -69,7 +69,7 @@ def lean_reverify_batch(names, con):
     with open(f, "w", encoding="utf-8", newline="") as fh:
         fh.write(body)
     try:
-        p = subprocess.run(["lake", "env", "lean", "JudgeReverify.lean"],
+        p = subprocess.run(["/root/.elan/bin/lake", "env", "lean", "JudgeReverify.lean"],
                            cwd=MATHLIB, capture_output=True, text=True,
                            timeout=1200, encoding="utf-8", errors="replace")
         out = p.stdout + p.stderr

@@ -1,0 +1,34 @@
+{
+ "spaced32": {
+  "train_acc1": 0.0125,
+  "train_acc5": 0.0625,
+  "held_acc1": 0.0,
+  "held_acc5": 0.0,
+  "repeats": 32,
+  "mode": "spaced"
+ },
+ "massed32": {
+  "train_acc1": 0.0063,
+  "train_acc5": 0.0187,
+  "held_acc1": 0.0,
+  "held_acc5": 0.0,
+  "repeats": 32,
+  "mode": "massed"
+ },
+ "massed64": {
+  "train_acc1": 0.0187,
+  "train_acc5": 0.0625,
+  "held_acc1": 0.0,
+  "held_acc5": 0.0,
+  "repeats": 64,
+  "mode": "massed"
+ },
+ "massed16": {
+  "train_acc1": 0.0,
+  "train_acc5": 0.0187,
+  "held_acc1": 0.0,
+  "held_acc5": 0.0,
+  "repeats": 16,
+  "mode": "massed"
+ }
+}

@@ -1,0 +1,78 @@
+{
+ "ret64": {
+  "0": {
+   "train_acc1": 160,
+   "held_acc1": 0,
+   "train": 1.0,
+   "held": 0.0
+  },
+  "2000000": {
+   "train_acc1": 1,
+   "held_acc1": 0,
+   "train": 0.0063,
+   "held": 0.0
+  },
+  "4000000": {
+   "train_acc1": 0,
+   "held_acc1": 0,
+   "train": 0.0,
+   "held": 0.0
+  },
+  "6000000": {
+   "train_acc1": 0,
+   "held_acc1": 0,
+   "train": 0.0,
+   "held": 0.0
+  },
+  "8000000": {
+   "train_acc1": 0,
+   "held_acc1": 0,
+   "train": 0.0,
+   "held": 0.0
+  },
+  "10000000": {
+   "train_acc1": 0,
+   "held_acc1": 0,
+   "train": 0.0,
+   "held": 0.0
+  }
+ },
+ "ret128": {
+  "0": {
+   "train_acc1": 160,
+   "held_acc1": 0,
+   "train": 1.0,
+   "held": 0.0
+  },
+  "2000000": {
+   "train_acc1": 8,
+   "held_acc1": 0,
+   "train": 0.05,
+   "held": 0.0
+  },
+  "4000000": {
+   "train_acc1": 3,
+   "held_acc1": 0,
+   "train": 0.0187,
+   "held": 0.0
+  },
+  "6000000": {
+   "train_acc1": 0,
+   "held_acc1": 0,
+   "train": 0.0,
+   "held": 0.0
+  },
+  "8000000": {
+   "train_acc1": 0,
+   "held_acc1": 0,
+   "train": 0.0,
+   "held": 0.0
+  },
+  "10000000": {
+   "train_acc1": 0,
+   "held_acc1": 0,
+   "train": 0.0,
+   "held": 0.0
+  }
+ }
+}
