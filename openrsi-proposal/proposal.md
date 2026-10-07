@@ -63,3 +63,10 @@ made explicit in the Evaluation rows.
    pre-admission and reported as a secondary metric; they never enter
    the primary-score set.
 
+
+## Retry #3 note (2026-10-07)
+
+Retrying after the overnight failure (2026-10-06, episode 37491258007,
+failed before completion). No content changes — fourth attempt across
+17 hours; three prior runs failed at ~30 min, one is bit-identical to
+the v1 body that completed normally on 2026-10-05.
