@@ -80,7 +80,13 @@ def _decl_name(stmt):
 def lean_ok(stmt, proof, workdir="/tmp/judge"):
     """Compile + axiom policy: the candidate must compile AND depend only
     on Lean's standard Prover axioms. Blocks the axiom-farm escape
-    (axiom foo : P / theorem := foo compiles but proves nothing)."""
+    (axiom foo : P / theorem := foo compiles but proves nothing).
+
+    Execution isolation (review #5 requirement): the compile subprocess
+    runs with (a) a scrubbed environment — every credential/API variable
+    stripped, so Lean elaboration effects cannot reach scorer keys — and
+    (b) no network access via `unshare -n` (compile has no legitimate
+    network need; the environment is offline by construction)."""
     os.makedirs(workdir, exist_ok=True)
     proof_ind = "\n".join(("  " + ln if ln.strip() else ln)
                           for ln in proof.split("\n"))
@@ -89,9 +95,23 @@ def lean_ok(stmt, proof, workdir="/tmp/judge"):
               newline="\n") as f:
         f.write("import Mathlib.Tactic\n\n" + stmt + "\n" + proof_ind +
                 "\n#print axioms " + name + "\n")
-    p = subprocess.run(["lake", "env", "lean", "Cand.lean"], cwd=MATHLIB,
-                       capture_output=True, text=True, timeout=600,
-                       encoding="utf-8", errors="replace")
+    scrub_env = {k: v for k, v in os.environ.items()
+                 if not re.search(r"KEY|TOKEN|SECRET|PASSWORD|ARK|DEEPSEEK|"
+                                  r"OPENAI|ANTHROPIC|HF_TOKEN", k, re.I)}
+    scrub_env["PATH"] = os.environ.get("PATH", "/usr/bin:/bin")
+    cmd = ["lake", "env", "lean", "Cand.lean"]
+    if os.path.exists("/usr/bin/unshare"):
+        cmd = ["unshare", "-n"] + cmd  # network-isolated compile
+    try:
+        p = subprocess.run(cmd, cwd=MATHLIB, capture_output=True,
+                           text=True, timeout=600, encoding="utf-8",
+                           errors="replace", env=scrub_env)
+    except FileNotFoundError:
+        # unshare unavailable in container: fall back to scrubbed env only
+        p = subprocess.run(cmd[2:] if cmd[:2] == ["unshare", "-n"] else cmd,
+                           cwd=MATHLIB, capture_output=True, text=True,
+                           timeout=600, encoding="utf-8", errors="replace",
+                           env=scrub_env)
     out = p.stdout + p.stderr
     if p.returncode != 0:
         return False, out[-300:]
@@ -113,12 +133,14 @@ def lean_ok(stmt, proof, workdir="/tmp/judge"):
     return False, "axiom report missing"
 
 
-# executable-command restriction: candidates may not use #eval/#eval'
-# raw commands, run tactic, IO actions, or lean_elan interactive bits —
-# the compiled file is rejected if it contains any of these tokens.
+# executable-command restriction (review #4/#5 fixes): candidates may not
+# use #eval/#check/#print, run_cmd, IO actions, macro/elab custom commands,
+# or set_option overrides of kernel checking — the compiled file is
+# rejected if it contains any of these tokens.
 BANNED_TOKENS = re.compile(
     r"(#\s*eval)|(#\s*check\s+\w)|(\brun_cmd\b)|(\bIO\s+\w)|"
-    r"(\bsorry\b)|(\badmit\b)|(#\s*print\s)", re.IGNORECASE)
+    r"(\bsorry\b)|(\badmit\b)|(#\s*print\s)|"
+    r"(\bmacro\b)|(\belab\b)|(\bset_option\b)", re.IGNORECASE)
 
 
 def exec_content_check(code):
@@ -126,6 +148,32 @@ def exec_content_check(code):
     if m:
         return False, f"banned executable token: {m.group(0)!r}"
     return True, ""
+
+
+# within-snapshot dedup (review #4/#5 fix): normalized statement form —
+# whitespace canonicalized; two lemmas whose statements are α-equivalent
+# (same tokens after canonicalization) count as ONE for the primary score
+def norm_stmt(stmt):
+    t = " ".join(stmt.split())
+    t = re.sub(r"\s*:\s*", ":", t)
+    t = re.sub(r"\s*([()∈∑^*+-])\s*", r"\1", t)
+    return t.lower()
+
+
+def dedup_snap(results, stmts):
+    """Mark later candidates that normalize-identically to an earlier
+    PASSING candidate as DUPLICATE (verdict replaced; primary count
+    unaffected — contributes 0)."""
+    seen = set()
+    for r, (fn, stmt) in zip(results, stmts):
+        if r["verdict"] == "NOVEL":
+            key = norm_stmt(stmt)
+            if key in seen:
+                r["verdict"] = "DUPLICATE"
+                r["why"] = "within-snapshot duplicate (normalized form)"
+            else:
+                seen.add(key)
+    return results
 
 
 def adjudicate(ask_fn, stmt, neigh):
@@ -189,6 +237,14 @@ def main():
             else ("FAIL", log[-120:])
         results.append(dict(file=fn, compiled=ok, verdict=verdict, why=why))
         print(f"{fn}: compiled={ok} {verdict}", flush=True)
+    # within-snapshot dedup (review fix): later α-equivalent repeats of an
+    # already-NOVEL candidate are marked DUPLICATE and score 0
+    stmts = []
+    for r in results:
+        f = open(f"{SNAP}/admitted/{r['file']}", encoding="utf-8").read()
+        m = re.search(r":=\s*by\b", f)
+        stmts.append(f[:m.start()] if m else f)
+    results = dedup_snap(results, stmts)
     novel = sum(1 for r in results
                 if r["compiled"] and r["verdict"] == "NOVEL")
     report = dict(primary_novel_count=novel,
