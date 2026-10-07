@@ -9,8 +9,8 @@ description = "Measure whether a verifier-escorted propose-check loop with a thr
 [metadata]
 author_name = "JUNRONG DU"
 author_email = "dududu9738@gmail.com"
-difficulty_explanation = "Each candidate round requires the agent to propose a Lean 4 lemma against live seed contexts, receive compiler errors, and revise; the research loop is the standard propose-check-revise cycle at ~6 min/round for 20 rounds per loop."
-verification_explanation = "Judge re-runs lake env lean on every admitted lemma from the materialized snapshot, then scores novelty via a cross-model-family adjudicator (semantic top-3 neighbors + lexical FTS legs); triviality gate; restatement rate reported alongside the primary count. Candidate code and self-reported logs are never scoring inputs."
+difficulty_explanation = "Each candidate round requires the agent to propose a Lean 4 lemma against live seed contexts, receive compiler errors, and revise; the research loop is the standard propose-check-revise cycle bounded by a 200-dispatch proposer budget."
+verification_explanation = "Judge re-runs a network-isolated lake env lean compile plus axiom policy on every admitted lemma from the materialized snapshot, then scores novelty via a cross-model-family adjudicator (RRF of semantic + lexical FTS legs, with cross-candidate in-snapshot dedup); triviality gate; INFRA outcomes excluded from all rates. Candidate code and self-reported logs are never scoring inputs."
 category = "Agents"
 subcategory = "AutoResearch"
 tags = ["autoresearch", "rsi", "verified-knowledge", "lean", "mathlib", "proposer-verifier"]
@@ -27,13 +27,36 @@ storage_mb = 30720
 build_timeout_sec = 5400
 workdir = "/workspace"
 gpus = 0
-network_mode = "full-network"
+# baseline: no network. Outbound access is granted per phase below.
+network_mode = "no-network"
+
+[environment.env]
+SELFLEARNER_SEMANTIC = "1"
 
 [agent]
 timeout_sec = 14400
-network_mode = "full-network"
+# Work may reach ONLY the proposer API (Volcano ARK); every other
+# endpoint (web, package mirrors, other LLM providers) is denied.
+network_mode = "allowlist"
+allowed_hosts = ["ark.cn-beijing.volces.com"]
+
+[agent.env]
+ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/coding/v3"
+ARK_MODEL = "glm-5.3-flash"
+# proposer credential is a host-side secret; injected at execution time only
+ARK_API_KEY = "${ARK_API_KEY}"
 
 [verifier]
 timeout_sec = 7200
-network_mode = "full-network"
+# Judge may reach ONLY the DeepSeek novelty-adjudication API. The
+# compile/axiom stage itself runs network-isolated in-container
+# (unshare -rn, credential-scrubbed env — see tests/judge_score.py).
+network_mode = "allowlist"
+allowed_hosts = ["api.deepseek.com"]
 environment_mode = "shared"
+
+[verifier.env]
+DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
+DEEPSEEK_MODEL = "deepseek-flash"
+# judge credential is a host-side secret; injected at execution time only
+DEEPSEEK_API_KEY = "${DEEPSEEK_API_KEY}"

@@ -44,12 +44,16 @@ def ask_effort(prompt, effort="low", temperature=0.4, max_tokens=8192):
     """Same Volcano Responses API but with configurable reasoning effort.
 
     The shared client hardcodes minimal; proposal quality is the
-    bottleneck, so spend reasoning tokens here. 429s back off 60s/attempt."""
+    bottleneck, so spend reasoning tokens here. 429s back off 60s/attempt.
+
+    Budget: every dispatch attempt (including 429 retries) counts one
+    unit against the transport-layer budget in budget.py."""
     import json as _json
     import time as _time
     import urllib.error as _uerr
     import urllib.request as _urllib  # noqa: PLC0415
     from llm_client import BASE, KEY, MODEL  # noqa: PLC0415
+    import budget  # noqa: PLC0415
     body = _json.dumps({
         "model": MODEL,
         "input": prompt,
@@ -58,6 +62,7 @@ def ask_effort(prompt, effort="low", temperature=0.4, max_tokens=8192):
         "reasoning": {"effort": effort},
     }).encode()
     for attempt in range(3):
+        budget.consume()  # one unit per dispatch attempt (transport layer)
         req = _urllib.Request(
             BASE + "/responses", data=body,
             headers={"Authorization": f"Bearer {KEY}",

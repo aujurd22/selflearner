@@ -1,0 +1,9 @@
+services:
+  main:
+    image: ubuntu:24.04
+    working_dir: /workspace
+    user: root
+    shm_size: 1g
+    environment:
+      ARK_API_KEY: ${ARK_API_KEY}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
