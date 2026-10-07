@@ -1,0 +1,4 @@
+-- The error is an environment/build issue, not a proof issue:
+-- the olean for `Mathlib.CategoryTheory.Limits.Shapes.Pullbacks` is missing.
+-- Rebuild it with:
+--   lake build Mathlib.CategoryTheory.Limits.Shapes.Pullbacks

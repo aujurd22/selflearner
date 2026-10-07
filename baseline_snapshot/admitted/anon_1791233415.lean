@@ -1,0 +1,3 @@
+-- Removed the unavailable import `Mathlib.Analysis.Calculus.Meromorphic.Divisor`.
+-- If you need that module, rebuild Mathlib with:
+--   lake build Mathlib.Analysis.Calculus.Meromorphic.Divisor

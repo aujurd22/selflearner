@@ -1,0 +1,4 @@
+-- The reported error is a missing build artifact, not a proof error:
+-- the olean for `Mathlib.CategoryTheory.Limits.Pullbacks` has not been built.
+-- Fix by either removing that import if the lemma does not need it,
+-- or running `lake build Mathlib.CategoryTheory.Limits.Pullbacks` in the mathlib checkout.

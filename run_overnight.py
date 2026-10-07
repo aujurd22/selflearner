@@ -30,11 +30,19 @@ def log_path():
 
 
 def run(rounds=60, effort="low", deadline_h=9.0):
+    class BudgetExhausted(RuntimeError):
+        pass
+
     call_budget = int(os.environ.get("FLYLOOP_CALL_BUDGET", "200"))
     call_count = [0]
     orig_ask_effort = pc.ask_effort
 
     def counted_ask(prompt, effort=effort, temperature=0.4, max_tokens=8192):
+        # budget check BEFORE dispatch (blocks mid-round overrun), and
+        # every dispatch attempt counts — including transport failures
+        # after the request left the runner (review Fix-2 requirement)
+        if call_count[0] >= call_budget:
+            raise BudgetExhausted(f"call budget {call_budget} exhausted")
         call_count[0] += 1
         return orig_ask_effort(prompt, effort=effort,
                                temperature=temperature,
@@ -46,8 +54,9 @@ def run(rounds=60, effort="low", deadline_h=9.0):
     run_seed = random.randrange(2**32)
     random.seed(run_seed)  # flyloop RUNSEED: domain choices must reproduce
     ask = pc.load_llm()
-    ask_fn = (lambda p: pc.ask_effort(p, effort=effort)) if effort != "minimal" \
-        else None
+    ask_fn = counted_ask  # both arms use the counted wrapper (review Fix-2:
+    # the launch path previously passed an uncounted ask_fn, bypassing the
+    # counter — now even the minimal-effort arm is counted)
     con = sqlite3.connect(pc.DB)
     lp = log_path()
     done = 0

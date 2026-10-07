@@ -1,0 +1,76 @@
+{
+ "lemmas": [
+  {
+   "name": "selflearner_lemma",
+   "file": "Topology/Instances/ENNReal/Lemmas.lean"
+  },
+  {
+   "name": "diagonal_mul_comm",
+   "file": "Data/Matrix/Mul.lean"
+  },
+  {
+   "name": "anon_1791228411",
+   "file": "Analysis/InnerProductSpace/Projection/Basic.lean"
+  },
+  {
+   "name": "anon_1791228771",
+   "file": "CategoryTheory/Limits/Shapes/Diagonal.lean"
+  },
+  {
+   "name": "anon_1791229039",
+   "file": "CategoryTheory/Limits/Shapes/Diagonal.lean"
+  },
+  {
+   "name": "anon_1791229209",
+   "file": "Topology/Maps/Basic.lean"
+  },
+  {
+   "name": "image_isVonNBounded_union",
+   "file": "Analysis/LocallyConvex/Bounded.lean"
+  },
+  {
+   "name": "fixed",
+   "file": "LinearAlgebra/AffineSpace/AffineSubspace/Basic.lean"
+  },
+  {
+   "name": "measure_mono'",
+   "file": "MeasureTheory/Measure/Typeclasses/SFinite.lean"
+  },
+  {
+   "name": "sub_one_add_one",
+   "file": "MeasureTheory/Function/SimpleFuncDenseLp.lean"
+  },
+  {
+   "name": "round1",
+   "file": "LinearAlgebra/Matrix/Transvection.lean"
+  },
+  {
+   "name": "nhds_self",
+   "file": "Topology/UniformSpace/Defs.lean"
+  },
+  {
+   "name": "anon_1791233415",
+   "file": "Analysis/Meromorphic/Divisor.lean"
+  },
+  {
+   "name": "fixed_lemma",
+   "file": "Algebra/BigOperators/Group/Finset/Basic.lean"
+  },
+  {
+   "name": "zpowers_zpow_sup_eq_zpowers",
+   "file": "GroupTheory/SpecificGroups/Cyclic.lean"
+  },
+  {
+   "name": "anon_1791234999",
+   "file": "Analysis/SpecialFunctions/Integrals/Basic.lean"
+  },
+  {
+   "name": "iSupIndep_bool_iff",
+   "file": "Order/SupIndep.lean"
+  },
+  {
+   "name": "round1_h",
+   "file": "Analysis/SpecialFunctions/Pow/NNReal.lean"
+  }
+ ]
+}
