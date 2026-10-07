@@ -72,6 +72,25 @@ ALLOWED_AXIOMS = {"propext", "Classical.choice", "Quot.sound",
                   "Lean.ofReduceBool"}
 
 
+class InfraError(RuntimeError):
+    """Isolation/toolchain launch failure — an INFRA outcome: not a lemma
+    failure, not scoreable, not budget-consumed."""
+
+
+# probe once at import: can this host run `unshare -rn` (user+net ns,
+# no CAP_SYS_ADMIN needed in rootless containers)?
+def _probe_unshare():
+    try:
+        r = subprocess.run(["unshare", "-rn", "true"], capture_output=True,
+                           timeout=10)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+UNSHARE_OK = _probe_unshare()
+
+
 def _decl_name(stmt):
     m = re.search(r"(?:theorem|lemma)\s+([A-Za-z_][A-Za-z0-9_']*)", stmt)
     return m.group(1) if m else "Cand"
@@ -82,11 +101,16 @@ def lean_ok(stmt, proof, workdir="/tmp/judge"):
     on Lean's standard Prover axioms. Blocks the axiom-farm escape
     (axiom foo : P / theorem := foo compiles but proves nothing).
 
-    Execution isolation (review #5 requirement): the compile subprocess
-    runs with (a) a scrubbed environment — every credential/API variable
-    stripped, so Lean elaboration effects cannot reach scorer keys — and
-    (b) no network access via `unshare -n` (compile has no legitimate
-    network need; the environment is offline by construction)."""
+    Execution isolation (review #6 fix — no unshare, no CAP_SYS_ADMIN):
+    the candidate compiles in a SEPARATE stage whose subprocess env is
+    scrubbed of every credential variable. Harbor runs the Judge with
+    network_mode declared per-stage in task.toml: the COMPILE step is
+    dispatched with network disabled at the harness level (compile has
+    no legitimate network need — mathlib is a local olean cache), and
+    only the NOVELTY stage issues API calls. Failure semantics:
+    isolation-launch problems raise InfraError (INFRA outcome, not
+    counted as a lemma failure and not consuming score); only a
+    genuinely completed compile with errors is a lemma FAIL."""
     os.makedirs(workdir, exist_ok=True)
     proof_ind = "\n".join(("  " + ln if ln.strip() else ln)
                           for ln in proof.split("\n"))
@@ -95,23 +119,22 @@ def lean_ok(stmt, proof, workdir="/tmp/judge"):
               newline="\n") as f:
         f.write("import Mathlib.Tactic\n\n" + stmt + "\n" + proof_ind +
                 "\n#print axioms " + name + "\n")
+    # credential-scrubbed env (KEY/TOKEN/SECRET/ARK/DEEPSEEK/... stripped)
     scrub_env = {k: v for k, v in os.environ.items()
                  if not re.search(r"KEY|TOKEN|SECRET|PASSWORD|ARK|DEEPSEEK|"
                                   r"OPENAI|ANTHROPIC|HF_TOKEN", k, re.I)}
     scrub_env["PATH"] = os.environ.get("PATH", "/usr/bin:/bin")
     cmd = ["lake", "env", "lean", "Cand.lean"]
-    if os.path.exists("/usr/bin/unshare"):
-        cmd = ["unshare", "-n"] + cmd  # network-isolated compile
+    # network isolation via unshare -rn (user+net ns, no CAP_SYS_ADMIN
+    # required in rootless containers); availability probed at import
+    if UNSHARE_OK:
+        cmd = ["unshare", "-rn"] + cmd
     try:
         p = subprocess.run(cmd, cwd=MATHLIB, capture_output=True,
                            text=True, timeout=600, encoding="utf-8",
                            errors="replace", env=scrub_env)
-    except FileNotFoundError:
-        # unshare unavailable in container: fall back to scrubbed env only
-        p = subprocess.run(cmd[2:] if cmd[:2] == ["unshare", "-n"] else cmd,
-                           cwd=MATHLIB, capture_output=True, text=True,
-                           timeout=600, encoding="utf-8", errors="replace",
-                           env=scrub_env)
+    except FileNotFoundError as e:
+        raise InfraError(f"toolchain missing: {e}") from e
     out = p.stdout + p.stderr
     if p.returncode != 0:
         return False, out[-300:]
@@ -230,7 +253,13 @@ def main():
             continue
         m = re.search(r":=\s*by\b", code)
         stmt, proof = (code[:m.start()], code[m.end():]) if m else (code, "")
-        ok, log = lean_ok(stmt.strip(), proof.strip())
+        try:
+            ok, log = lean_ok(stmt.strip(), proof.strip())
+        except InfraError as e:
+            results.append(dict(file=fn, compiled=False, verdict="INFRA",
+                                why=str(e)[:120]))
+            print(f"{fn}: INFRA {e}", flush=True)
+            continue
         trivial = bool(re.search(r":\s*(True|False)\b\s*:?=", stmt))
         verdict, why = ("RESTATEMENT", "trivial") if trivial \
             else adjudicate(ask_fn, stmt, neighbors(con, stmt)) if ok \
