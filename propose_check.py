@@ -177,9 +177,11 @@ def check_candidate(code):
     if ok and re.search(r"\b(sorry|admit)\b", code):
         ok = False
         log = "SORRY/ADMIT in accepted text\n" + log
-    if ok:
-        # Work-side admission gate: axiom-dependency policy (declared
-        # treatment component; the Judge re-checks independently)
+    if ok and os.environ.get("SELFLEARNER_ARM", "gated") == "gated":
+        # Gated arm's admission gate: the axiom-dependency policy is
+        # part of the treatment stack (control arm = compile-only by
+        # declaration). The Judge re-checks axioms for BOTH arms as a
+        # uniform measurement floor.
         aok, awy = axiom_ok(code, log)
         if not aok:
             ok = False
