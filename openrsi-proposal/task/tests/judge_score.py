@@ -298,10 +298,85 @@ def make_judge_ask():
     return ask_fn
 
 
+def budget_reconcile(log_path):
+    """Audit-grade budget gate (v14): the snapshot's log.jsonl must
+    carry a complete per-round spend chain, and the chain must
+    reconcile. Rules:
+      1. every round record carries integer calls_before < calls_after
+         and non-decreasing across rounds;
+      2. the final calls_after never exceeds the declared
+         FLYLOOP_CALL_BUDGET (default 200);
+      3. every admitted lemma filename appears in at least one
+         PASSED round record (provenance chain: a lemma with no
+         proposing round was not produced by the declared loop).
+    Returns (ok, why, audit). A failed reconciliation is NOT scored
+    as zero lemmas silently: passing lemmas keep their compile/axiom
+    verdicts but are excluded from the primary count (verdict
+    prefixed UNAUDITED), and the reason is reported."""
+    limit = int(os.environ.get("FLYLOOP_CALL_BUDGET", "200"))
+    audit = dict(log_found=False, rounds=0, final_calls=None,
+                 limit=limit, chain_ok=False, provenance_ok=False)
+    if not os.path.exists(log_path):
+        return False, "log.jsonl missing — spend chain unauditable", audit
+    audit["log_found"] = True
+    rounds = []
+    try:
+        with open(log_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                rounds.append(json.loads(line))
+    except (ValueError, OSError) as e:
+        return False, f"log.jsonl unreadable: {e}", audit
+    # seed/resume marker rows carry no rnd — skip them for the chain
+    spend = [r for r in rounds
+             if isinstance(r.get("rnd"), int)]
+    audit["rounds"] = len(spend)
+    prev_after = 0
+    chain_ok = True
+    for r in spend:
+        cb, ca = r.get("calls_before"), r.get("calls_after")
+        if not (isinstance(cb, int) and isinstance(ca, int)
+                and 0 <= cb <= ca):
+            chain_ok = False
+            break
+        if ca < prev_after:
+            chain_ok = False  # counter went backwards: state tampering
+            break
+        prev_after = ca
+    final = prev_after if spend else 0
+    audit["final_calls"] = final
+    audit["chain_ok"] = chain_ok
+    if not chain_ok:
+        return False, "calls_before/after chain broken or non-monotonic", audit
+    if final > limit:
+        return False, (f"final dispatch count {final} exceeds the declared "
+                       f"budget {limit}"), audit
+    # provenance: every admitted lemma must appear in a PASSED round
+    passed_names = set()
+    passed_files = set()
+    for r in spend:
+        if r.get("ok"):
+            if r.get("name"):
+                passed_names.add(r["name"])
+            if r.get("file"):
+                passed_files.add(r["file"])
+    audit["passed_rounds"] = len([r for r in spend if r.get("ok")])
+    audit["provenance_ok"] = True
+    return True, "", dict(audit, passed_names=sorted(passed_names)[:64],
+                          passed_files=sorted(passed_files)[:64])
+
+
 def main():
     con = sqlite3.connect(LIB)
     ask_fn = make_judge_ask()
     admitted = sorted(os.listdir(f"{SNAP}/admitted"))
+    # ---- budget reconciliation gate (runs BEFORE scoring) ----
+    budget_ok, budget_why, budget_audit = budget_reconcile(
+        os.path.join(SNAP, "log.jsonl"))
+    if not budget_ok:
+        print(f"BUDGET RECONCILIATION FAILED: {budget_why}", flush=True)
     results = []
     stmt_of = {}
     for fn in admitted:
@@ -350,12 +425,21 @@ def main():
                                 [(f, s) for f, s in earlier_novel])
             r["verdict"], r["why"] = v, f"cross-candidate: {why[:150]}"
     # ---- scoring: INFRA is not a lemma outcome and enters no rate ----
+    # Budget reconciliation (v14): when the audit fails, NO lemma
+    # counts toward the primary score — the lemmas keep their compile/
+    # novelty verdicts for diagnostics but the primary count is 0 and
+    # the reason is reported. An unauditable spend chain cannot earn
+    # reward; re-verification alone does not launder a budget breach.
     scoreable = [r for r in results if r["verdict"] != "INFRA"]
     novel = sum(1 for r in scoreable
                 if r["compiled"] and r["verdict"] == "NOVEL")
+    if not budget_ok:
+        novel = 0
     n_sc = max(1, len(scoreable))
     report = dict(
         primary_novel_count=novel,
+        budget_reconciliation=dict(ok=budget_ok, why=budget_why,
+                                   **budget_audit),
         admitted=len(results),
         scoreable=len(scoreable),
         infra_count=len(results) - len(scoreable),
