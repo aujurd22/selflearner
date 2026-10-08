@@ -6,3 +6,5 @@ runs/
 m77_*.log
 m6_*.log
 m73_*.log
+__pycache__/
+.v1*_review*
