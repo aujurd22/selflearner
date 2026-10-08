@@ -260,10 +260,14 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 data = ex.read() if hasattr(ex, "read") else b"{}"
                 code = ex.code
+                _record_dispatch(self.path, payload, data, code)
                 break
             except Exception as ex:
                 # dispatch was counted (consume preceded the request);
-                # surface as 502 with the attempt count
+                # surface as 502 with the attempt count — and record the
+                # failed dispatch so the ledger stays consistent with
+                # the counted chain
+                _record_dispatch(self.path, payload, b"{}", 502)
                 self._json(502, {"error": "upstream_transport",
                                  "why": repr(ex)[:200],
                                  "attempts_counted": attempt + 1})

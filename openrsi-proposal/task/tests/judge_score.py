@@ -439,6 +439,8 @@ def dispatch_reconcile(dispatch_path, log_path, snap_dir):
         return False, (f"ledger has {len(entries)} dispatches but the log "
                        f"chain claims {chain_final} — logged dispatches "
                        "without provider trace"), audit
+    audit["ledger_chain_equal"] = (chain_final is None
+                                   or len(entries) == chain_final)
     # token presence: every successful entry must report usage
     no_usage = [e for e in ok_entries if not e.get("total_tokens")]
     if ok_entries and len(no_usage) > len(ok_entries) // 2:
