@@ -109,6 +109,7 @@ including its `import Mathlib.Tactic` line. No sorry, no admit."""
 
 
 _FILES = None
+_SEM_VECS = None  # cached vectors.npz (np.load per call is wasteful)
 
 
 def sample_seeds(con, k=4):
@@ -208,8 +209,11 @@ def semantic_dup(con, code, threshold=0.93):
             return False, ""
         stmt = " ".join((m.group(1) + m.group(2)).split())[:512]
         v = embed(stmt)
-        z = np.load(os.path.join(ROOT, "vectors.npz"))
-        tv = z["thm_vecs"]
+        global _SEM_VECS  # cache: 181k×384 np.load per call is wasteful
+        if _SEM_VECS is None:
+            z = np.load(os.path.join(ROOT, "vectors.npz"))
+            _SEM_VECS = z
+        tv = _SEM_VECS["thm_vecs"]
         if not len(tv):
             return False, ""
         sims = tv @ v
@@ -236,11 +240,13 @@ def retract(con, name, reason):
 
 
 def novelty_check(con, code):
-    """Gate stack G (compile already checked by caller). Off-switch for the
-    ungated baseline arm: NOVELTY_GATE=0 runs the same proposer with
-    compile-pass = admit."""
-    if os.environ.get("NOVELTY_GATE", "1") != "1":
-        return True, "ok (gate off)"
+    """Gated arm's novelty gate. Arm selection: SELFLEARNER_ARM
+    (default gated) switches the ENTIRE admission stack — the axiom
+    gate in check_candidate AND this novelty gate — so the control arm
+    is genuinely compile-only (the Judge's axiom policy still applies
+    to both arms as a uniform measurement floor)."""
+    if os.environ.get("SELFLEARNER_ARM", "gated") != "gated":
+        return True, "ok (control arm: compile-only admission)"
     """Lean guarantees TRUE; this gate approximates NEW.
 
     Rejects (a) name collisions, (b) one-line `exact <existing>` restatements

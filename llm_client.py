@@ -1,8 +1,10 @@
 """Shared client for the Volcano (ark.cn-beijing) Responses API.
 
-Model: glm-5.3-flash.  API key supplied via env ARK_API_KEY or the
-default from the user's console (do not commit real keys -- this
-default is the user's own coding-console key, kept in the private repo).
+Model: ARK_MODEL env (default glm-5.3-flash, matching the declared
+proposer; the task proxy
+pins it to the declared proposer model regardless). API key supplied
+via env ARK_API_KEY only — never a committed default (an empty key
+fails upstream authentication).
 
 Usage:
     from llm_client import ask
@@ -45,7 +47,7 @@ def _guarded_urlopen(req, timeout):
 # Key MUST come from the environment (never committed -- GitHub Push
 # Protection blocks any commit containing it, by design).
 KEY = os.environ.get("ARK_API_KEY", "")
-MODEL = os.environ.get("ARK_MODEL", "doubao-seed-2.1-lite")
+MODEL = os.environ.get("ARK_MODEL", "glm-5.3-flash")
 
 
 def ask(prompt: str, temperature: float = 0.0,
@@ -129,7 +131,7 @@ def ask_chat(prompt: str, temperature: float = 0.0,
         "max_tokens": max_tokens,
     }).encode()
     # thinking.type=disabled is accepted across ark chat models (verified:
-    # doubao-seed-2.1-lite AND deepseek-v4.1-flash; reasoning_chars -> 0)
+    # glm-5.3-flash AND deepseek-v4.1-flash; reasoning_chars -> 0)
     body = json.dumps({**json.loads(body),
                        "thinking": {"type": "disabled"}}).encode()
     req = urllib.request.Request(

@@ -36,7 +36,6 @@ The loop runner starts it automatically and waits for /health.
 import json
 import os
 import re
-import stat
 import sys
 import tempfile
 import threading
@@ -48,8 +47,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 PROXY_PORT = int(os.environ.get("ARK_PROXY_PORT", "8080"))
 UPSTREAM = os.environ.get("ARK_UPSTREAM_URL",
                           "https://ark.cn-beijing.volces.com/api/coding/v3")
-# the key arrives as a root-only FILE, never as an env var
-KEY_FILE = os.environ.get("ARK_KEY_FILE", "/run/secrets/ark_api_key")
+# the key arrives via the proxy process's own environment (harness
+# host-secret injection into the runner, which spawns the proxy with a
+# scrubbed env); it never appears in the agent-facing env
 DECLARED_MODEL = os.environ.get("ARK_MODEL", "glm-5.3-flash")
 BUDGET_LIMIT = int(os.environ.get("FLYLOOP_CALL_BUDGET", "200"))
 STATE_PATH = os.environ.get(
@@ -132,18 +132,11 @@ def remaining():
 
 
 def _read_key():
-    try:
-        st = os.stat(KEY_FILE)
-        if st.st_mode & (stat.S_IRGRP | stat.S_IROTH):
-            print(f"ark_proxy: WARNING {KEY_FILE} is group/other-readable",
-                  flush=True)
-        with open(KEY_FILE, encoding="utf-8") as f:
-            key = f.read().strip()
-        if key:
-            return key
-    except OSError as e:
-        print(f"ark_proxy: cannot read key file {KEY_FILE}: {e}", flush=True)
-    return ""
+    key = os.environ.get("ARK_API_KEY", "")
+    if not key:
+        print("ark_proxy: no ARK_API_KEY in the proxy environment — "
+              "upstream auth will fail", flush=True)
+    return key
 
 
 _KEY = None
@@ -230,10 +223,6 @@ def main():
     global _KEY
     _load_count()  # may raise StateLost -> refuse to start (fail closed)
     _KEY = _read_key()
-    if not _KEY:
-        print("ark_proxy: no upstream key — proxy will forward but all "
-              "requests will fail upstream auth", flush=True)
-    os.environ.pop("ARK_API_KEY", None)  # never hold the key in env
     os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
     srv = ThreadingHTTPServer(("127.0.0.1", PROXY_PORT), Handler)
     print(f"ark_proxy: 127.0.0.1:{PROXY_PORT} -> proposer API | model "

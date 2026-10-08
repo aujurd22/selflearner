@@ -60,10 +60,21 @@ def _encoder():
     return _ENC
 
 
+_ENC = None
+_VECS = None  # cache: np.load of a 181k×384 matrix per call is wasteful
+
+
+def _vecs():
+    global _VECS
+    if _VECS is None:
+        z = np.load("/workspace/library/vectors_release.npz")
+        _VECS = (z["thm_vecs"], list(z["thm_ids"]))
+    return _VECS
+
+
 def neighbors(con, stmt, k=5):
     """Hybrid semantic + lexical legs (the v2.5 fix)."""
-    z = np.load("/workspace/library/vectors_release.npz")
-    tv, tids = z["thm_vecs"], list(z["thm_ids"])
+    tv, tids = _vecs()
     v = _encoder().encode([" ".join(stmt.split())[:512]],
                           normalize_embeddings=True)[0]
     sem = [tids[i] for i in np.argsort(-(tv @ v))[:20]]
@@ -262,10 +273,12 @@ def adjudicate(ask_fn, stmt, neigh, snapshot_neighbors):
                "IMMEDIATELY with exactly one word RESTATEMENT or NOVEL, "
                "then one short reason.")
     reply = ask_fn(prompt)
-    up = reply.upper()
-    if "RESTATEMENT" in up:
+    up = reply.upper()[:40]  # anchored: the verdict word must lead the
+    # reply (the prompt says IMMEDIATELY); later mentions of either
+    # word inside the reasoning text no longer flip the verdict
+    if up.startswith("RESTATEMENT"):
         is_rest = True
-    elif "NOVEL" in up:
+    elif up.startswith("NOVEL"):
         is_rest = False
     else:
         is_rest = True  # unrecognizable verdict = conservative restated
@@ -449,7 +462,8 @@ def main():
                                    if r["verdict"] == "RESTATEMENT")
                                / n_sc, 3),
         trivial_rate=round(sum(1 for r in scoreable
-                               if r["verdict"] == "trivial") / n_sc, 3),
+                               if r["verdict"] == "RESTATEMENT"
+                               and r.get("why") == "trivial") / n_sc, 3),
         invalid_rate=round(sum(1 for r in scoreable
                                if r["verdict"] in ("FAIL", "INVALID"))
                            / n_sc, 3),
@@ -466,5 +480,27 @@ def main():
     print("SCORE", novel, flush=True)
 
 
+def _fail_closed(why):
+    """Last-resort handler: ANY uncaught error still writes a numeric,
+    finite reward of 0 plus the reason — the verifier must never exit
+    without a reward file (Harbor treats a missing/empty reward as a
+    Verifier error, and fail-closed means 0, not crash)."""
+    os.makedirs(SNAP, exist_ok=True)
+    with open(f"{SNAP}/report.json", "w") as f:
+        json.dump(dict(primary_novel_count=0,
+                       budget_reconciliation=dict(ok=False, why=why[:200]),
+                       admitted=0, scoreable=0, infra_count=0,
+                       error=why[:500]), f, indent=1)
+    os.makedirs(os.path.dirname(REWARD_PATH), exist_ok=True)
+    with open(REWARD_PATH, "w") as f:
+        json.dump({"primary_novel_count": 0}, f)
+    print("SCORE 0 (fail-closed:", why[:120], ")", flush=True)
+
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except InfraError as e:
+        _fail_closed(f"INFRA: {e}")
+    except Exception as e:  # noqa: BLE001 — fail closed, never crash bare
+        _fail_closed(f"EXC {type(e).__name__}: {e}")

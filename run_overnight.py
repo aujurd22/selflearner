@@ -65,25 +65,12 @@ def _start_proxy():
     import urllib.request as _u
     import tempfile as _tmp
     state = budget_state_path()
-    key = os.environ.pop("ARK_API_KEY", "")  # remove from runner env
-    key_dir = "/run/secrets"
-    key_path = os.path.join(key_dir, "ark_api_key")
-    try:
-        os.makedirs(key_dir, exist_ok=True)
-        with open(key_path, "w", encoding="utf-8") as f:
-            f.write(key)
-        os.chmod(key_path, 0o600)  # owner-only; agent shell runs as root too,
-        # but the key is in a FILE it must consciously read, never in env
-    except OSError:
-        key_path = os.path.join(_tmp.gettempdir(), ".ark_key_v12")
-        with open(key_path, "w", encoding="utf-8") as f:
-            f.write(key)
-        os.chmod(key_path, 0o600)
+    key = os.environ.pop("ARK_API_KEY", "")  # scrub from the agent env
     env = {k: v for k, v in os.environ.items()
            if "KEY" not in k.upper() and "TOKEN" not in k.upper()
            and "SECRET" not in k.upper()}
     env.update(ARK_BUDGET_STATE=state,
-               ARK_KEY_FILE=key_path,
+               ARK_API_KEY=key,  # proxy-process env only
                FLYLOOP_CALL_BUDGET=os.environ.get("FLYLOOP_CALL_BUDGET", "200"),
                ARK_MODEL=os.environ.get("ARK_MODEL", "glm-5.3-flash"))
     proc = subprocess.Popen(
