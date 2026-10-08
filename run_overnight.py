@@ -21,8 +21,10 @@ budget.count() before/after so per-round spend is auditable.
 Usage:
   python run_overnight.py run [rounds=0] [effort=low]
   python run_overnight.py report
-  (a NEW loop = new OVERNIGHT_TAG = fresh budget state; there is
-  no agent-facing reset of an active counter)
+
+A NEW loop is declared by a fresh ARK_BUDGET_STATE path (the runner
+derives it from a NEW OVERNIGHT_TAG). There is no reset command: the
+budget state of a running loop is a protocol component.
 """
 import json
 import os
@@ -226,15 +228,13 @@ def report():
 
 if __name__ == "__main__":
     if sys.argv[1] == "run":
-        run(int(sys.argv[2]) if len(sys.argv) > 2 and int(sys.argv[2]) > 0 else 0,
-            sys.argv[3] if len(sys.argv) > 3 else "low")
+        # deadline override is a first-class CLI flag: formal launches
+        # pass --deadline-h covering the full 200-dispatch budget
+        args = [a for a in sys.argv[2:] if not a.startswith("--")]
+        deadline = 9.0
+        if "--deadline-h" in sys.argv:
+            deadline = float(sys.argv[sys.argv.index("--deadline-h") + 1])
+        run(int(args[0]) if args and int(args[0]) > 0 else 0,
+            args[1] if len(args) > 1 else "low", deadline_h=deadline)
     elif sys.argv[1] == "report":
         report()
-    elif sys.argv[1] == "budget-reset":
-        # Operator-only action (documented for the contributor, not part
-        # of the agent surface): a NEW loop starts from a fresh state
-        # file under a NEW OVERNIGHT_TAG, which is the sanctioned way to
-        # begin at zero; deleting the active state file is refused.
-        print("refused: the active budget state is a protocol component. "
-              "Start a NEW loop with a new OVERNIGHT_TAG instead.")
-        raise SystemExit(2)

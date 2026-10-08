@@ -70,13 +70,18 @@ class StateLost(RuntimeError):
 
 
 def _load_count():
-    """Restore the cumulative count; a missing or corrupt state file is
-    a HARD STARTUP FAILURE (fail closed — never silently reset to 0)."""
+    """Restore the cumulative count. FAIL-CLOSED on BOTH branches: a
+    missing state file is a HARD STARTUP FAILURE (a deleted state file
+    + restart is indistinguishable from tampering — a genuinely NEW
+    loop is declared by the operator via a fresh state file path, not
+    by deleting the old one); a corrupt/mismatched file likewise
+    aborts startup. Never silently reset to 0."""
     global _count
     if not os.path.exists(STATE_PATH):
-        # first launch of a NEW loop: initialize atomically, then trust it
-        os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
-        _persist_locked(0)
+        raise StateLost(
+            f"budget state file {STATE_PATH} does not exist — refusing to "
+            "start (a new loop is declared by pointing ARK_BUDGET_STATE at "
+            "a fresh path, never by deleting the old state)")
     try:
         with open(STATE_PATH, encoding="utf-8") as f:
             data = json.load(f)

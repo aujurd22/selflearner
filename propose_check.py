@@ -129,10 +129,43 @@ def sample_seeds(con, k=4):
     return file_, rows
 
 
+ALLOWED_AXIOMS = {"propext", "Classical.choice", "Quot.sound",
+                  "Lean.ofReduceBool"}
+
+
+def axiom_ok(code, log_out):
+    """Work-side admission gate (part of the declared treatment): after
+    a compiling candidate, `#print axioms` must show dependencies within
+    Lean's standard Prover axioms only — blocks the axiom-farm escape
+    (axiom foo : P / theorem := foo compiles but proves nothing) at
+    admission time, not just at Judge time. Returns (ok, why)."""
+    m = re.search(r"^(?:private\s+|protected\s+)*"
+                  r"(?:theorem|lemma)\s+([A-Za-z_][A-Za-z0-9_']*)", code, re.M)
+    if not m:
+        return False, "no theorem name for axiom check"
+    name = m.group(1)
+    m2 = re.search(r"'[^']+' depends on axioms: \[(.*)\]", log_out)
+    if m2:
+        used = {a.strip().strip("'") for a in m2.group(1).split(",")}
+        bad = used - ALLOWED_AXIOMS
+        if bad:
+            return False, f"nonstandard axioms: {sorted(bad)}"
+        return True, ""
+    if "does not depend on any axioms" in log_out:
+        return True, ""
+    return False, "axiom report missing"
+
+
 def check_candidate(code):
     """Write candidate, run lean. Returns (ok, log)."""
     with open(CAND, "w", encoding="utf-8", newline="\n") as f:
-        f.write(code + "\n")
+        f.write(code + "\n#print axioms "
+                + (re.search(r"^(?:private\s+|protected\s+)*"
+                             r"(?:theorem|lemma)\s+([A-Za-z_][A-Za-z0-9_']*)",
+                             code, re.M).group(1)
+                   if re.search(r"^(?:private\s+|protected\s+)*"
+                                r"(?:theorem|lemma)\s+([A-Za-z_][A-Za-z0-9_']*)",
+                                code, re.M) else "Cand") + "\n")
     p = subprocess.run(
         ["lake", "env", "lean", os.path.basename(CAND)],
         cwd=MATHLIB, capture_output=True, text=True, timeout=600,
@@ -143,6 +176,13 @@ def check_candidate(code):
     if ok and re.search(r"\b(sorry|admit)\b", code):
         ok = False
         log = "SORRY/ADMIT in accepted text\n" + log
+    if ok:
+        # Work-side admission gate: axiom-dependency policy (declared
+        # treatment component; the Judge re-checks independently)
+        aok, awy = axiom_ok(code, log)
+        if not aok:
+            ok = False
+            log = f"AXIOM GATE: {awy}\n" + log
     return ok, log
 
 
