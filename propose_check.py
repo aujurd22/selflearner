@@ -46,14 +46,15 @@ def ask_effort(prompt, effort="low", temperature=0.4, max_tokens=8192):
     The shared client hardcodes minimal; proposal quality is the
     bottleneck, so spend reasoning tokens here. 429s back off 60s/attempt.
 
-    Budget: every dispatch attempt (including 429 retries) counts one
-    unit against the transport-layer budget in budget.py."""
+    Budget: NOT counted here. All dispatches go through the mandatory
+    proxy (ARK_BASE_URL -> 127.0.0.1:8080 in the task container), which
+    is the single authoritative counter — the proxy counts every
+    upstream attempt including these 429 backoff retries."""
     import json as _json
     import time as _time
     import urllib.error as _uerr
     import urllib.request as _urllib  # noqa: PLC0415
     from llm_client import BASE, KEY, MODEL  # noqa: PLC0415
-    import budget  # noqa: PLC0415
     body = _json.dumps({
         "model": MODEL,
         "input": prompt,
@@ -62,7 +63,6 @@ def ask_effort(prompt, effort="low", temperature=0.4, max_tokens=8192):
         "reasoning": {"effort": effort},
     }).encode()
     for attempt in range(3):
-        budget.consume()  # one unit per dispatch attempt (transport layer)
         req = _urllib.Request(
             BASE + "/responses", data=body,
             headers={"Authorization": f"Bearer {KEY}",

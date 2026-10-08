@@ -50,10 +50,55 @@ def budget_state_path():
     return os.path.join(RUNS, f"budget_state{tag}.json")
 
 
+def _start_proxy():
+    """Start the mandatory proposer proxy and point the client at it.
+
+    The proxy is the budget enforcement POINT: it holds the real ARK
+    endpoint + key (neither is in the agent's env), counts one unit per
+    upstream dispatch attempt, and is the only reachable route to the
+    API (the task network allowlist admits loopback only). Returns the
+    proxy state path used for the counter."""
+    import subprocess
+    import urllib.request as _u
+    state = budget_state_path()
+    env = dict(os.environ)
+    env["ARK_BUDGET_STATE"] = state
+    env.pop("ARK_PROXY_PORT", None)
+    proc = subprocess.Popen(
+        [sys.executable, os.path.join(ROOT, "ark_proxy.py")],
+        env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(50):
+        try:
+            with _u.urlopen("http://127.0.0.1:8080/health", timeout=2) as r:
+                if r.status == 200:
+                    os.environ["ARK_BASE_URL"] = "http://127.0.0.1:8080"
+                    os.environ["ARK_PROXY_PID"] = str(proc.pid)
+                    return state
+        except Exception:
+            time.sleep(0.2)
+    proc.kill()
+    raise RuntimeError("proposer proxy failed to start — Work cannot reach "
+                       "the proposer API except through it")
+
+
+
+def _proxy_calls():
+    """Authoritative count: read the proxy's health endpoint (the proxy
+    process owns the counter; this runner only reports it)."""
+    import urllib.request as _u
+    try:
+        with _u.urlopen("http://127.0.0.1:8080/health", timeout=2) as r:
+            return int(json.load(r)["calls"])
+    except Exception:
+        return budget.count()
+
 def run(rounds=0, effort="low", deadline_h=9.0):
     call_budget = int(os.environ.get("FLYLOOP_CALL_BUDGET", "200"))
     round_cap = int(os.environ.get("FLYLOOP_ROUND_CAP", "0"))
-    budget.init(budget_state_path(), call_budget)
+    state = _start_proxy()
+    budget.init(state, call_budget)  # counts come from the proxy's file
+    # re-read after init: the proxy restored its own persisted count
+    budget_count = budget.count
 
     run_seed = random.randrange(2**32)
     random.seed(run_seed)  # flyloop RUNSEED: domain choices must reproduce
@@ -69,36 +114,36 @@ def run(rounds=0, effort="low", deadline_h=9.0):
     t0 = time.time()
     prev = None
     passed = failed = 0
-    spent_at_start = budget.count()
+    spent_at_start = _proxy_calls()
     streak = 0
     fail_first = {}
     rnd = done
     print(f"run_seed={run_seed} resume_from={done} "
-          f"budget={budget.count()}/{call_budget}", flush=True)
+          f"budget={_proxy_calls()}/{call_budget}", flush=True)
     with open(lp, "a", encoding="utf-8") as f:
         f.write(json.dumps(dict(seed=run_seed, resumed=done,
-                                budget=budget.count(),
+                                budget=_proxy_calls(),
                                 t=time.strftime("%H:%M:%S"))) + "\n")
     # NO round cap in the declared protocol: the loop stops when the
     # proposer budget is exhausted (budget.remaining() == 0, enforced
     # inside budget.consume() by BudgetExhausted) or the deadline hits.
     while (time.time() - t0) < deadline_h * 3600:
-        if budget.remaining() == 0:
+        if _proxy_calls() >= call_budget:
             break
         if round_cap and rnd >= round_cap:
             break
         rnd += 1
-        pre = budget.count()
+        pre = _proxy_calls()
         try:
             r = pc.one_round(con, ask, rnd, prev,
                              lambda p: pc.ask_effort(p, effort=effort))
         except budget.BudgetExhausted as e:
             r = dict(rnd=rnd, ok=False, why=f"BUDGET {e!r}"[:120],
-                     budget=budget.count())
+                     budget=_proxy_calls())
         except Exception as e:  # noqa: BLE001
             r = dict(rnd=rnd, ok=False, why=f"EXC {e!r}"[:300])
         r["calls_before"] = pre
-        r["calls_after"] = budget.count()
+        r["calls_after"] = _proxy_calls()
         passed += r["ok"]
         failed += not r["ok"]
         if r["ok"]:
@@ -115,7 +160,7 @@ def run(rounds=0, effort="low", deadline_h=9.0):
         r["t"] = time.strftime("%H:%M:%S")
         with open(lp, "a", encoding="utf-8") as f:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
-        print(f"[{rnd}] budget={budget.count()}/{call_budget} "
+        print(f"[{rnd}] budget={_proxy_calls()}/{call_budget} "
               f"{r.get('file', '?')} "
               f"{'PASS ' + r.get('name', '') if r['ok'] else 'FAIL'}",
               flush=True)
@@ -124,8 +169,8 @@ def run(rounds=0, effort="low", deadline_h=9.0):
     summary = dict(finished=time.strftime("%Y-%m-%d %H:%M"),
                    rounds=rnd, passed=passed, failed=failed,
                    thm_total=n, kb_total=kb,
-                   llm_calls=budget.count(), call_budget=call_budget,
-                   calls_spent=budget.count() - spent_at_start)
+                   llm_calls=_proxy_calls(), call_budget=call_budget,
+                   calls_spent=_proxy_calls() - spent_at_start)
     with open(os.path.join(os.path.dirname(lp),
                            f"summary{os.environ.get('OVERNIGHT_TAG', '')}.json"),
               "w") as f:

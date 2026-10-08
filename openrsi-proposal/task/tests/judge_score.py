@@ -97,10 +97,17 @@ class InfraError(RuntimeError):
 
 
 def _unshare_ok():
-    """Probe `unshare -rn` (user+net ns — no CAP_SYS_ADMIN needed in
-    rootless containers) once. False here means we CANNOT provide the
-    declared network-isolated compile stage, so every compile becomes
-    INFRA (never a silent fallback to unisolated execution)."""
+    """Probe `unshare -rn` (user+net ns) ONCE. OPTIONAL hardening: the
+    Judge container's network policy ALREADY denies everything except
+    the DeepSeek adjudication endpoint (task.toml [verifier]
+    allowlist), and the compile subprocess env is credential-scrubbed,
+    so the compile stage has no reachable network and no keys whether
+    or not unshare works. When the probe succeeds, unshare adds a
+    second, in-container isolation layer (defense in depth); when it
+    fails (Docker default seccomp restricts namespace creation), the
+    stage runs under the declared task-level policy instead — this is
+    a SUPPORTED route, not a silent fallback: the report records which
+    compile isolation level was active."""
     try:
         r = subprocess.run(["unshare", "-rn", "true"], capture_output=True,
                            timeout=10)
@@ -124,14 +131,17 @@ def lean_ok(stmt, proof, workdir="/tmp/judge"):
     nothing).
 
     Execution surface (declared contract):
-      - the compile subprocess env is scrubbed of every credential-
-        bearing variable, so Judge/novelty keys are absent by
-        construction;
-      - network isolation comes from `unshare -rn`. If that probe
-        failed at import, this stage CANNOT run as declared and raises
-        InfraError — the whole snapshot is INFRA (unscored), never a
-        silent fallback to unisolated compilation;
-      - only a genuinely completed compile with errors is a lemma FAIL.
+      - PRIMARY isolation is at the task level: the Judge container's
+        network allowlist admits ONLY the DeepSeek adjudication
+        endpoint, so the compile stage has no reachable network and no
+        route to any proposer/agent service; the subprocess env is
+        additionally scrubbed of every credential-bearing variable;
+      - `unshare -rn` is OPTIONAL second-layer hardening (defense in
+        depth). Its availability is probed once; failure is a
+        SUPPORTED route (the task-level policy above still holds), and
+        the report records which isolation level was active;
+      - only a genuinely completed compile with errors is a lemma FAIL;
+        toolchain problems raise InfraError (INFRA, unscored).
     """
     os.makedirs(workdir, exist_ok=True)
     proof_ind = "\n".join(("  " + ln if ln.strip() else ln)
@@ -141,14 +151,14 @@ def lean_ok(stmt, proof, workdir="/tmp/judge"):
               newline="\n") as f:
         f.write("import Mathlib.Tactic\n\n" + stmt + "\n" + proof_ind +
                 "\n#print axioms " + name + "\n")
-    if not UNSHARE_OK:
-        raise InfraError("network-isolated compile stage unavailable "
-                         "(unshare probe failed at import)")
     scrub_env = {k: v for k, v in os.environ.items()
                  if not re.search(r"KEY|TOKEN|SECRET|PASSWORD|ARK|DEEPSEEK|"
                                   r"OPENAI|ANTHROPIC|HF_TOKEN", k, re.I)}
     scrub_env["PATH"] = os.environ.get("PATH", "/usr/bin:/bin")
-    cmd = ["unshare", "-rn", "lake", "env", "lean", "Cand.lean"]
+    if UNSHARE_OK:
+        cmd = ["unshare", "-rn", "lake", "env", "lean", "Cand.lean"]
+    else:
+        cmd = ["lake", "env", "lean", "Cand.lean"]
     try:
         p = subprocess.run(cmd, cwd=MATHLIB, capture_output=True,
                            text=True, timeout=600, encoding="utf-8",
@@ -349,6 +359,8 @@ def main():
         admitted=len(results),
         scoreable=len(scoreable),
         infra_count=len(results) - len(scoreable),
+        compile_isolation=("unshare-netns+allowlist" if UNSHARE_OK
+                           else "task-allowlist+scrubbed-env"),
         restatement_rate=round(sum(1 for r in scoreable
                                    if r["verdict"] == "RESTATEMENT")
                                / n_sc, 3),

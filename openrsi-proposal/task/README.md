@@ -13,13 +13,35 @@ budget against Lean mathlib.
 
 ## Layout
 
-- `task.toml` — Harbor task manifest (CPU-only, full-network for the
-  proposer API).
+- `task.toml` — Harbor task manifest (CPU-only; Work allowlist is
+  loopback-only: the proposer proxy is the single counted egress;
+  Judge allowlist: DeepSeek only).
 - `instruction.md` — the research agent's brief.
+- `tests/test.sh` — Harbor verifier entry (executes judge_score.py).
 - `tests/judge_score.py` — Judge-only scorer: Lean re-verification of
-  every admitted lemma, triviality gate, hybrid-retrieval novelty
-  adjudication (semantic + lexical RRF legs feeding a cross-model
-  LLM judge). Never trusts candidate-reported logs.
+  every admitted lemma under the task-level network policy with a
+  credential-scrubbed subprocess env (unshare -rn as optional second
+  layer when the runtime permits), triviality gate, hybrid-retrieval
+  novelty adjudication (semantic + lexical RRF legs feeding a
+  cross-model LLM judge), cross-candidate in-snapshot dedup. Never
+  trusts candidate-reported logs. Writes /logs/verifier/reward.json.
+
+## Budget enforcement architecture
+
+The proposer budget is enforced at a network chokepoint, not by
+client-side convention:
+
+- `ark_proxy.py` runs inside Work and IS the proposer endpoint from
+  the agent's perspective (`ARK_BASE_URL=http://127.0.0.1:8080`);
+- the real ARK endpoint and key exist only in the proxy process env
+  (host-secret injection), never in the agent shell;
+- the Work network allowlist admits ONLY loopback, so a candidate
+  bypassing the loop's Python helpers (curl, raw sockets, its own
+  code) still cannot reach the API except through the proxy;
+- the proxy counts one unit per upstream dispatch attempt (429
+  backoff retries each count), answers HTTP 429 at the cap without
+  dispatching upstream, and persists the count atomically
+  (restore-not-reset on restart).
 
 ## Evidence from the pilot (2026-10-05, 20 rounds/arm, judge
 adjudication)

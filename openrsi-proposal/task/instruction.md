@@ -14,17 +14,22 @@ proposer budget of 200 LLM dispatch attempts.
   (toolchain v4.35.0-rc3). Verification runs as
   `cd /workspace/mathlib4 && lake env lean <file>.lean`.
 - `/workspace/loop/` — the loop code (`propose_check.py`,
-  `run_overnight.py`, `budget.py`). The proposer endpoint and key are
-  provided via `ARK_BASE_URL` / `ARK_API_KEY` env vars.
+  `run_overnight.py`, `ark_proxy.py`). The proposer endpoint from
+  your container is the local proxy: `ARK_BASE_URL` points at
+  `http://127.0.0.1:8080` (the runner starts the proxy for you).
 
 ## Budget (fixed protocol — do not bypass)
 
-- 200 proposer dispatch attempts. The counter lives in `budget.py`
-  and is invoked at the transport layer (inside the API-call helpers,
-  immediately before each request): **every dispatch attempt counts,
-  including 429 backoff retries and transport failures.**
+- 200 proposer dispatch attempts. The counter lives in the local
+  proxy (`ark_proxy.py`), which is the ONLY network route to the
+  proposer API from this container: the real endpoint and key are
+  not in your environment, and every request — from the loop code or
+  from any code you write — goes through the proxy and is counted
+  per dispatch attempt (429 backoff retries each count).
+- At the cap the proxy answers HTTP 429 with a JSON body
+  (`error: budget_exhausted`); the runner stops the loop.
 - The counter is persistent (`runs/budget_state.json`): restarting
-  the runner does NOT reset it.
+  the runner or the proxy does NOT reset it.
 - `python3 run_overnight.py run` runs the loop until the budget is
   exhausted; there is no round cap. `budget-reset` zeroes the counter
   only when starting a genuinely NEW loop.
@@ -59,8 +64,8 @@ proposer budget of 200 LLM dispatch attempts.
 - Do NOT edit existing mathlib sources or olean cache.
 - Do NOT fabricate compile logs: Judge re-compiles every lemma from
   source in a fresh environment.
-- Do NOT edit, delete, or reset `budget.py` or its state file — the
-  transport-layer counter is part of the protocol.
+- Do NOT edit, delete, or reset `ark_proxy.py` or its state file —
+  the proxy counter is part of the protocol.
 - The only network endpoint reachable from your container is the
   proposer API (`ark.cn-beijing.volces.com`). No web search, no other
   LLM providers, no package downloads.

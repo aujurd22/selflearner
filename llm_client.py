@@ -14,11 +14,17 @@ import time
 import urllib.request
 
 try:
-    import budget  # transport-layer call counter (set to no-op when absent)
+    import budget  # kept for local (proxy-less) dev runs only
 except ImportError:  # pragma: no cover
     budget = None
 
-BASE = "https://ark.cn-beijing.volces.com/api/coding/v3"
+# In the rsi/verified-lemma-growth Work container the proxy IS the
+# endpoint: ARK_BASE_URL is injected pointing at 127.0.0.1:8080, and
+# the proxy counts every upstream attempt. Counting lives THERE, not
+# here — this client must stay counting-free so the proxy is the
+# single authoritative counter.
+BASE = os.environ.get("ARK_BASE_URL",
+                      "https://ark.cn-beijing.volces.com/api/coding/v3")
 # Key MUST come from the environment (never committed -- GitHub Push
 # Protection blocks any commit containing it, by design).
 KEY = os.environ.get("ARK_API_KEY", "")
@@ -48,11 +54,6 @@ def ask(prompt: str, temperature: float = 0.0,
                  "Authorization": f"Bearer {KEY}"})
     last_err = None
     for attempt in range(5):
-        # one budget unit per dispatch attempt: 429 retries after the
-        # request left the runner consume budget (proposal: transport-
-        # layer counting)
-        if budget is not None:
-            budget.consume()
         try:
             # P186-c lesson: a hung socket can wedge a 600s-timeout call for
             # ~50min across retries. effort=minimal answers arrive in <60s,
@@ -89,8 +90,6 @@ def ask(prompt: str, temperature: float = 0.0,
         BASE + "/responses", data=body,
         headers={"Content-Type": "application/json",
                  "Authorization": f"Bearer {KEY}"})
-    if budget is not None:
-        budget.consume()  # the effort=low fallback is its own dispatch
     r = json.loads(urllib.request.urlopen(req, timeout=900).read())
     parts = []
     for item in r.get("output", []):
