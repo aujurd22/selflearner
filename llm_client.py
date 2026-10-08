@@ -18,13 +18,30 @@ try:
 except ImportError:  # pragma: no cover
     budget = None
 
-# In the rsi/verified-lemma-growth Work container the proxy IS the
-# endpoint: ARK_BASE_URL is injected pointing at 127.0.0.1:8080, and
-# the proxy counts every upstream attempt. Counting lives THERE, not
-# here — this client must stay counting-free so the proxy is the
-# single authoritative counter.
+# In the rsi/verified-lemma-growth task container the proxy IS the
+# endpoint: ARK_BASE_URL points at 127.0.0.1:8080 and the proxy counts
+# every upstream attempt and pins the model. When ARK_PROXY_REQUIRED=1
+# this client refuses to send anywhere else, so the audited path and
+# the counted path are the same path.
 BASE = os.environ.get("ARK_BASE_URL",
                       "https://ark.cn-beijing.volces.com/api/coding/v3")
+_PROXY_REQUIRED = os.environ.get("ARK_PROXY_REQUIRED") == "1"
+if _PROXY_REQUIRED and not BASE.startswith("http://127.0.0.1"):
+    raise RuntimeError(
+        "ARK_PROXY_REQUIRED=1 but ARK_BASE_URL is not the local proxy — "
+        "refusing to send uncounted proposer traffic")
+
+
+def _guarded_urlopen(req, timeout):
+    """One hard gate before every send: in task mode the request MUST
+    target the local proxy (the counted path)."""
+    if _PROXY_REQUIRED:
+        url = req.get_full_url()
+        if not url.startswith("http://127.0.0.1"):
+            raise RuntimeError(
+                f"refusing uncounted dispatch to {url.split('/')[2]} — "
+                "proposer traffic must go through the local proxy")
+    return urllib.request.urlopen(req, timeout=timeout)
 # Key MUST come from the environment (never committed -- GitHub Push
 # Protection blocks any commit containing it, by design).
 KEY = os.environ.get("ARK_API_KEY", "")
@@ -59,7 +76,7 @@ def ask(prompt: str, temperature: float = 0.0,
             # ~50min across retries. effort=minimal answers arrive in <60s,
             # so bound each attempt at 150s (5 attempts ~13min worst case,
             # then the effort=low fallback below still gets its 900s).
-            r = json.loads(urllib.request.urlopen(req, timeout=150).read())
+            r = json.loads(_guarded_urlopen(req, 150).read())
             parts = []
             for item in r.get("output", []):
                 if item.get("type") == "message":
@@ -90,7 +107,7 @@ def ask(prompt: str, temperature: float = 0.0,
         BASE + "/responses", data=body,
         headers={"Content-Type": "application/json",
                  "Authorization": f"Bearer {KEY}"})
-    r = json.loads(urllib.request.urlopen(req, timeout=900).read())
+    r = json.loads(_guarded_urlopen(req, 900).read())
     parts = []
     for item in r.get("output", []):
         if item.get("type") == "message":
@@ -119,5 +136,5 @@ def ask_chat(prompt: str, temperature: float = 0.0,
         BASE + "/chat/completions", data=body,
         headers={"Content-Type": "application/json",
                  "Authorization": f"Bearer {KEY}"})
-    r = json.loads(urllib.request.urlopen(req, timeout=600).read())
+    r = json.loads(_guarded_urlopen(req, 600).read())
     return r["choices"][0]["message"].get("content", "") or ""

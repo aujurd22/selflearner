@@ -21,7 +21,8 @@ budget.count() before/after so per-round spend is auditable.
 Usage:
   python run_overnight.py run [rounds=0] [effort=low]
   python run_overnight.py report
-  python run_overnight.py budget-reset   # NEW loop: zero the counter
+  (a NEW loop = new OVERNIGHT_TAG = fresh budget state; there is
+  no agent-facing reset of an active counter)
 """
 import json
 import os
@@ -53,17 +54,36 @@ def budget_state_path():
 def _start_proxy():
     """Start the mandatory proposer proxy and point the client at it.
 
-    The proxy is the budget enforcement POINT: it holds the real ARK
-    endpoint + key (neither is in the agent's env), counts one unit per
-    upstream dispatch attempt, and is the only reachable route to the
-    API (the task network allowlist admits loopback only). Returns the
-    proxy state path used for the counter."""
+    Credential boundary (v12): the ARK key moves OUT of the runner
+    environment into a root-only file the proxy reads at startup; the
+    runner and the agent shell never hold the key. The proxy pins the
+    declared model, counts every upstream dispatch attempt, and fails
+    closed (startup aborts) when the budget state is unusable."""
     import subprocess
     import urllib.request as _u
+    import tempfile as _tmp
     state = budget_state_path()
-    env = dict(os.environ)
-    env["ARK_BUDGET_STATE"] = state
-    env.pop("ARK_PROXY_PORT", None)
+    key = os.environ.pop("ARK_API_KEY", "")  # remove from runner env
+    key_dir = "/run/secrets"
+    key_path = os.path.join(key_dir, "ark_api_key")
+    try:
+        os.makedirs(key_dir, exist_ok=True)
+        with open(key_path, "w", encoding="utf-8") as f:
+            f.write(key)
+        os.chmod(key_path, 0o600)  # owner-only; agent shell runs as root too,
+        # but the key is in a FILE it must consciously read, never in env
+    except OSError:
+        key_path = os.path.join(_tmp.gettempdir(), ".ark_key_v12")
+        with open(key_path, "w", encoding="utf-8") as f:
+            f.write(key)
+        os.chmod(key_path, 0o600)
+    env = {k: v for k, v in os.environ.items()
+           if "KEY" not in k.upper() and "TOKEN" not in k.upper()
+           and "SECRET" not in k.upper()}
+    env.update(ARK_BUDGET_STATE=state,
+               ARK_KEY_FILE=key_path,
+               FLYLOOP_CALL_BUDGET=os.environ.get("FLYLOOP_CALL_BUDGET", "200"),
+               ARK_MODEL=os.environ.get("ARK_MODEL", "glm-5.3-flash"))
     proc = subprocess.Popen(
         [sys.executable, os.path.join(ROOT, "ark_proxy.py")],
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -72,14 +92,14 @@ def _start_proxy():
             with _u.urlopen("http://127.0.0.1:8080/health", timeout=2) as r:
                 if r.status == 200:
                     os.environ["ARK_BASE_URL"] = "http://127.0.0.1:8080"
+                    os.environ["ARK_PROXY_REQUIRED"] = "1"
                     os.environ["ARK_PROXY_PID"] = str(proc.pid)
                     return state
         except Exception:
             time.sleep(0.2)
     proc.kill()
-    raise RuntimeError("proposer proxy failed to start — Work cannot reach "
-                       "the proposer API except through it")
-
+    raise RuntimeError("proposer proxy failed to start — the loop cannot "
+                       "dispatch: the proxy is the budget enforcement point")
 
 
 def _proxy_calls():
@@ -211,7 +231,10 @@ if __name__ == "__main__":
     elif sys.argv[1] == "report":
         report()
     elif sys.argv[1] == "budget-reset":
-        p = budget_state_path()
-        if os.path.exists(p):
-            os.remove(p)
-        print("budget state cleared:", p)
+        # Operator-only action (documented for the contributor, not part
+        # of the agent surface): a NEW loop starts from a fresh state
+        # file under a NEW OVERNIGHT_TAG, which is the sanctioned way to
+        # begin at zero; deleting the active state file is refused.
+        print("refused: the active budget state is a protocol component. "
+              "Start a NEW loop with a new OVERNIGHT_TAG instead.")
+        raise SystemExit(2)

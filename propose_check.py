@@ -33,9 +33,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # vendored llm_c
 
 
 def load_llm():
-    """Import the shared intuition llm_client, supplying its key."""
-    key = open(KEY_FILE, encoding="utf-8").read().strip()
-    os.environ.setdefault("ARK_API_KEY", key)
+    """Import the shared llm_client. The proposer credential never
+    passes through here: in the task container the client talks to the
+    mandatory local proxy (ARK_BASE_URL), which holds the key file.
+    The legacy key-file path is only used OUTSIDE the task (local dev
+    runs) and only when the proxy is not running."""
+    if (os.environ.get("ARK_PROXY_REQUIRED") == "1"
+            and os.environ.get("ARK_BASE_URL", "").startswith("http://127.0.0.1")):
+        pass  # task mode: proxy holds the credential; nothing to inject
+    elif os.path.exists(KEY_FILE) and not os.environ.get("ARK_API_KEY"):
+        key = open(KEY_FILE, encoding="utf-8").read().strip()
+        os.environ["ARK_API_KEY"] = key
     import llm_client  # noqa: PLC0415
     return llm_client.ask
 

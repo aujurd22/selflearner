@@ -35,24 +35,32 @@ SELFLEARNER_SEMANTIC = "1"
 
 [agent]
 timeout_sec = 14400
-# Budget enforcement architecture: the ONLY network reachable from
-# Work is the local proposer proxy (loopback). The proxy holds the
-# real ARK endpoint and key in its own process env — neither is in
-# the agent's env — counts one unit per upstream dispatch attempt,
-# and returns HTTP 429 with a machine-readable body at the cap. A
-# candidate bypassing the loop's Python helpers (curl, raw sockets,
-# its own code) still cannot reach the API except through the proxy.
+# Budget enforcement architecture (v12, aligned with the harness
+# iptables model — loopback is always blocked, so the proxy cannot
+# hold the only egress): the Work allowlist names the REAL ARK
+# endpoint, and the proxy is the only CREDENTIALED client: the ARK
+# key is injected as a root-only file (mode 0600) that the proxy
+# reads at startup; the runner scrubs the key from its own env and
+# the agent shell never holds it. The proxy pins the model field and
+# counts every upstream dispatch attempt (429 retries each count),
+# answers HTTP 429 at the cap without dispatching, persists the
+# count atomically, and REFUSES TO START on unusable budget state
+# (fail closed). The loop client refuses non-proxy proposer URLs
+# when ARK_PROXY_REQUIRED=1, so the audited path and the counted
+# path are the same path.
 network_mode = "allowlist"
-allowed_hosts = ["127.0.0.1", "localhost"]
+allowed_hosts = ["ark.cn-beijing.volces.com"]
 
 [agent.env]
-# the client-facing base URL IS the proxy; no real ARK endpoint or
-# key exists in the Work environment
+# the client-facing base URL is the local proxy; the proxy forwards
+# to the real endpoint (allowlisted above) and does the counting
 ARK_BASE_URL = "http://127.0.0.1:8080"
-ARK_MODEL = "glm-5.3-flash"
+ARK_PROXY_REQUIRED = "1"
 ARK_PROXY_PORT = "8080"
-# upstream credential for the proxy process itself (host-side secret,
-# injected at execution time only, never exported to the agent shell)
+ARK_MODEL = "glm-5.3-flash"
+# upstream credential for the proxy only: injected at execution time,
+# redacted from diagnostics; the runner writes it to a 0600 file that
+# the proxy reads — it never enters the agent shell environment
 ARK_API_KEY = "${ARK_API_KEY}"
 
 [verifier]
