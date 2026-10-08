@@ -184,6 +184,20 @@ def run(rounds=0, effort="low", deadline_h=9.0):
                            f"summary{os.environ.get('OVERNIGHT_TAG', '')}.json"),
               "w") as f:
         json.dump(summary, f, indent=1)
+    # deliver the provider-side dispatch ledger with the snapshot:
+    # the Judge cross-checks it against the log spend chain (v16)
+    ledger_src = os.environ.get(
+        "ARK_DISPATCH_LOG",
+        os.path.join(RUNS, "dispatch.jsonl"))
+    snap = os.environ.get("SELFLEARNER_SNAPSHOT", "/workspace/snapshot")
+    try:
+        if os.path.exists(ledger_src):
+            os.makedirs(snap, exist_ok=True)
+            import shutil
+            shutil.copy(ledger_src, os.path.join(snap, "dispatch.jsonl"))
+    except OSError as e:
+        print(f"WARN: dispatch ledger not copied into snapshot: {e}",
+              flush=True)
     print("OVERNIGHT DONE", summary, flush=True)
 
 

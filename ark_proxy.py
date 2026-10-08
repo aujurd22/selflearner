@@ -33,6 +33,7 @@ v12 architecture (aligned with the RSI Harness network model):
 Run inside Work:  python3 ark_proxy.py  (foreground; port 8080)
 The loop runner starts it automatically and waits for /health.
 """
+import hashlib
 import json
 import os
 import re
@@ -141,6 +142,58 @@ def _read_key():
 
 _KEY = None
 
+# provider-side dispatch ledger (v16): the proxy appends one record per
+# upstream dispatch — prompt hash, tokens, timestamps, model. The file
+# lives in the proxy's own state directory; the agent cannot append to
+# it (the proxy holds the only writer), and the Judge reconciles the
+# snapshot against it: content binding between scored lemmas and
+# recorded provider outputs, and a token-level cross-check of the
+# declared budget.
+DISPATCH_LOG = os.environ.get(
+    "ARK_DISPATCH_LOG",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                 "runs", "dispatch.jsonl"))
+_dispatch_lock = threading.Lock()
+
+
+def _record_dispatch(endpoint, req_body, resp_body, code):
+    """Append one provider-side dispatch record. Best-effort: a ledger
+    write failure must NOT corrupt the response path (the count is
+    already persisted by consume())."""
+    try:
+        rec = dict(t=time.strftime("%Y-%m-%dT%H:%M:%S"),
+                   endpoint=endpoint,
+                   prompt_sha256=hashlib.sha256(req_body).hexdigest(),
+                   prompt_sha256_12=hashlib.sha256(req_body).hexdigest()[:12],
+                   model=DECLARED_MODEL, status=code)
+        try:
+            rj = json.loads(resp_body)
+            u = rj.get("usage")
+            if isinstance(u, dict):
+                rec["input_tokens"] = u.get("input_tokens")
+                rec["output_tokens"] = u.get("output_tokens")
+                rec["total_tokens"] = u.get("total_tokens")
+            # content binding: hash the model's OUTPUT text so the Judge
+            # can tie a scored lemma to the exact provider response
+            out_text = ""
+            for item in rj.get("output", []):
+                if item.get("type") == "message":
+                    for c in item.get("content", []):
+                        if c.get("type") == "output_text":
+                            out_text += c.get("text", "")
+            if out_text:
+                rec["output_sha256_12"] = hashlib.sha256(
+                    out_text.encode()).hexdigest()[:12]
+        except ValueError:
+            pass
+        os.makedirs(os.path.dirname(DISPATCH_LOG), exist_ok=True)
+        with _dispatch_lock:
+            with open(DISPATCH_LOG, "a", encoding="utf-8") as f:
+                f.write(json.dumps(rec) + "\n")
+    except Exception:
+        pass
+
+
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -199,6 +252,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 with urllib.request.urlopen(req, timeout=900) as r:
                     data, code = r.read(), r.status
+                _record_dispatch(self.path, payload, data, code)
                 break
             except urllib.error.HTTPError as ex:
                 if ex.code == 429 and attempt < 2:
