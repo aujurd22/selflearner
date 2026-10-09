@@ -29,6 +29,8 @@ budget state of a running loop is a protocol component.
 import json
 import os
 import random
+import re
+import shutil
 import sqlite3
 import sys
 import time
@@ -187,21 +189,42 @@ def run(rounds=0, effort="low", deadline_h=9.0):
                            f"summary{os.environ.get('OVERNIGHT_TAG', '')}.json"),
               "w") as f:
         json.dump(summary, f, indent=1)
-    # deliver the provider-side dispatch ledger with the snapshot:
-    # the Judge cross-checks it against the log spend chain (v16)
+    # deliver the full scored snapshot (v18 contract):
+    #   admitted/*.lean  + log.jsonl + library_diff.json + dispatch.jsonl
+    # the Judge cross-checks the spend chain against the dispatch ledger
+    # (v16) and binds each admitted lemma to its provider output (v17)
     ledger_src = os.environ.get(
         "ARK_DISPATCH_LOG",
         os.environ.get("ARK_DISPATCH_LOG",
                        os.path.join(RUNS, f"dispatch{tag}.jsonl")))
     snap = os.environ.get("SELFLEARNER_SNAPSHOT", "/workspace/snapshot")
     try:
+        os.makedirs(os.path.join(snap, "admitted"), exist_ok=True)
+        # 1. full round log (with per-round prompt/output hashes)
+        shutil.copy(lp, os.path.join(snap, "log.jsonl"))
+        # 2. dispatch ledger (proxy-written, provider token attestation)
         if os.path.exists(ledger_src):
-            os.makedirs(snap, exist_ok=True)
-            import shutil
             shutil.copy(ledger_src, os.path.join(snap, "dispatch.jsonl"))
-    except OSError as e:
-        print(f"WARN: dispatch ledger not copied into snapshot: {e}",
+        # 3. library diff: every admitted lemma as .lean + a diff manifest
+        con2 = sqlite3.connect(pc.DB)
+        rows = con2.execute(
+            "SELECT name, statement, proof FROM thm "
+            "WHERE attrs LIKE '%provenance=proposed%'").fetchall()
+        diff = []
+        for name, stmt, proof in rows:
+            safe = re.sub(r"[^A-Za-z0-9_']", "_", name) or f"anon_{name}"
+            with open(os.path.join(snap, "admitted", f"{safe}.lean"),
+                      "w", encoding="utf-8") as f:
+                f.write(stmt + "\n" + proof + "\n")
+            diff.append({"name": name,
+                         "statement": " ".join(stmt.split())})
+        json.dump(diff, open(os.path.join(snap, "library_diff.json"), "w"),
+                  indent=1, ensure_ascii=False)
+        con2.close()
+        print(f"snapshot assembled: {snap} ({len(rows)} admitted lemmas)",
               flush=True)
+    except OSError as e:
+        print(f"WARN: snapshot assembly incomplete: {e}", flush=True)
     print("OVERNIGHT DONE", summary, flush=True)
 
 
