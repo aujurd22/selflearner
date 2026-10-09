@@ -9,7 +9,7 @@ description = "Measure whether a verifier-escorted propose-check loop with a thr
 [metadata]
 author_name = "JUNRONG DU"
 author_email = "dududu9738@gmail.com"
-difficulty_explanation = "Each candidate round requires the agent to propose a Lean 4 lemma against live seed contexts, receive compiler errors, and revise; the research loop is the standard propose-check-revise cycle bounded by a 200-dispatch proposer budget enforced at a mandatory local proxy."
+difficulty_explanation = "Each candidate round requires the agent to propose a Lean 4 lemma against live seed contexts, receive compiler errors, and revise; the research loop is the standard propose-check-revise cycle bounded by a 60-dispatch proposer budget enforced at a mandatory local proxy."
 verification_explanation = "Judge re-runs lake env lean plus the axiom policy on every admitted lemma from the materialized snapshot under the task-level network allowlist (judge reaches only the adjudication API) with a credential-scrubbed subprocess environment, then scores novelty via a cross-model-family adjudicator (RRF of semantic + lexical FTS legs, with cross-candidate in-snapshot dedup); triviality gate; INFRA outcomes excluded from all rates. Candidate code and self-reported logs are never scoring inputs."
 category = "Agents"
 subcategory = "AutoResearch"

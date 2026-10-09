@@ -3,7 +3,7 @@
 You operate a knowledge-growth loop against a Lean 4 (mathlib) theorem
 library. Your goal: maximize the number of **genuinely new,
 machine-verified lemmas** admitted to the library within a fixed
-proposer budget of 200 LLM dispatch attempts.
+proposer budget of 60 LLM dispatch attempts.
 
 ## Setup (already in the environment)
 
@@ -20,7 +20,7 @@ proposer budget of 200 LLM dispatch attempts.
 
 ## Budget (fixed protocol — do not bypass)
 
-- 200 proposer dispatch attempts. The counter lives in the local
+- 60 proposer dispatch attempts. The counter lives in the local
   proxy (`ark_proxy.py`), which is the ONLY network route to the
   proposer API from this container: the real endpoint and key are
   not in your environment, and every request — from the loop code or

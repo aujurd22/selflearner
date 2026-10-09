@@ -1,0 +1,27 @@
+{
+ "per_loop": [
+  {
+   "dir": "C:\\Users\\djr82\\AppData\\Local\\Temp\\tmp9e0zov18\\gated-loop1",
+   "arm": "gated",
+   "rounds": 1,
+   "budget_used": 58,
+   "admitted": 4,
+   "verified": 0,
+   "novel": 3
+  }
+ ],
+ "aggregate": {
+  "gated": {
+   "loops": 1,
+   "median_novel": 3,
+   "novels": [
+    3
+   ],
+   "total_dispatches": 58,
+   "all_within_budget": true,
+   "verification_yield": 0.0,
+   "novel_yield_rate": 5.172
+  }
+ },
+ "budget": 60
+}

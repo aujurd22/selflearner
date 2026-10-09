@@ -2,7 +2,7 @@
 CALL BUDGET (not a round count).
 
 Budget semantics (rsi/verified-lemma-growth, fixed protocol):
-  - the declared budget FLYLOOP_CALL_BUDGET (default 200) counts
+  - the declared budget FLYLOOP_CALL_BUDGET (default 60) counts
     proposer dispatch attempts at the transport layer: every 429
     backoff retry and every transport failure after the request left
     the runner consumes one unit (counting lives in budget.py, invoked
@@ -70,8 +70,11 @@ def _start_proxy():
            if "KEY" not in k.upper() and "TOKEN" not in k.upper()
            and "SECRET" not in k.upper()}
     env.update(ARK_BUDGET_STATE=state,
+               ARK_DISPATCH_LOG=os.environ.get(
+                   "ARK_DISPATCH_LOG",
+                   os.path.join(RUNS, f"dispatch{os.environ.get('OVERNIGHT_TAG', '')}.jsonl")),
                ARK_API_KEY=key,  # proxy-process env only
-               FLYLOOP_CALL_BUDGET=os.environ.get("FLYLOOP_CALL_BUDGET", "200"),
+               FLYLOOP_CALL_BUDGET=os.environ.get("FLYLOOP_CALL_BUDGET", "60"),
                ARK_MODEL=os.environ.get("ARK_MODEL", "glm-5.3-flash"))
     proc = subprocess.Popen(
         [sys.executable, os.path.join(ROOT, "ark_proxy.py")],
@@ -102,7 +105,7 @@ def _proxy_calls():
         return budget.count()
 
 def run(rounds=0, effort="low", deadline_h=9.0):
-    call_budget = int(os.environ.get("FLYLOOP_CALL_BUDGET", "200"))
+    call_budget = int(os.environ.get("FLYLOOP_CALL_BUDGET", "60"))
     round_cap = int(os.environ.get("FLYLOOP_ROUND_CAP", "0"))
     state = _start_proxy()
     budget.init(state, call_budget)  # counts come from the proxy's file
@@ -188,7 +191,8 @@ def run(rounds=0, effort="low", deadline_h=9.0):
     # the Judge cross-checks it against the log spend chain (v16)
     ledger_src = os.environ.get(
         "ARK_DISPATCH_LOG",
-        os.path.join(RUNS, "dispatch.jsonl"))
+        os.environ.get("ARK_DISPATCH_LOG",
+                       os.path.join(RUNS, f"dispatch{tag}.jsonl")))
     snap = os.environ.get("SELFLEARNER_SNAPSHOT", "/workspace/snapshot")
     try:
         if os.path.exists(ledger_src):
@@ -230,7 +234,7 @@ def report():
 if __name__ == "__main__":
     if sys.argv[1] == "run":
         # deadline override is a first-class CLI flag: formal launches
-        # pass --deadline-h covering the full 200-dispatch budget
+        # pass --deadline-h covering the full 60-dispatch budget
         args = [a for a in sys.argv[2:] if not a.startswith("--")]
         deadline = 9.0
         if "--deadline-h" in sys.argv:

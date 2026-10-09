@@ -12,6 +12,7 @@ Round structure:
 
 Usage: python propose_check.py [n_rounds]
 """
+import hashlib
 import os
 import random
 import re
@@ -316,11 +317,15 @@ def one_round(con, ask, rnd, prev=None, ask_fn=None, retries=2):
     if prev:
         ctx += ("\n\nA lemma this session grew earlier (already verified, "
                 "you may cite it):\n" + prev)
-    reply = propose(PROMPT.format(context=ctx))
+    prompt_full = PROMPT.format(context=ctx)
+    prompt_sha = hashlib.sha256(prompt_full.encode()).hexdigest()[:12]
+    reply = propose(prompt_full)
     m = re.search(r"```lean\n(.*?)```", reply, re.S)
     if not m:
-        return dict(rnd=rnd, file=file_, ok=False, why="no lean block")
+        return dict(rnd=rnd, file=file_, ok=False, why="no lean block",
+                    prompt_sha256_12=prompt_sha)
     code = m.group(1).strip()
+    output_sha = hashlib.sha256(code.encode()).hexdigest()[:12]
     for attempt in range(retries + 1):
         ok, log = check_candidate(code)
         if ok:
@@ -335,14 +340,21 @@ def one_round(con, ask, rnd, prev=None, ask_fn=None, retries=2):
             if not m:
                 break
             code = m.group(1).strip()
+            output_sha = hashlib.sha256(code.encode()).hexdigest()[:12]
     if ok:
         new, why = novelty_check(con, code)
         if not new:
-            return dict(rnd=rnd, file=file_, ok=False, why=f"DUP {why}")
+            return dict(rnd=rnd, file=file_, ok=False, why=f"DUP {why}",
+                        prompt_sha256_12=prompt_sha,
+                        output_sha256_12=output_sha)
         name = admit(con, code, file_, log)
         return dict(rnd=rnd, file=file_, ok=True, name=name, code=code,
-                    tries=attempt + 1)
-    return dict(rnd=rnd, file=file_, ok=False, why=log[-500:])
+                    tries=attempt + 1,
+                    prompt_sha256_12=prompt_sha,
+                    output_sha256_12=output_sha)
+    return dict(rnd=rnd, file=file_, ok=False, why=log[-500:],
+                prompt_sha256_12=prompt_sha,
+                output_sha256_12=output_sha)
 
 
 def main():

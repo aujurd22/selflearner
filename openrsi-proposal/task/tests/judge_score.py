@@ -21,6 +21,7 @@ restatement / triviality / invalid rates over SCOREABLE entries only
 outcome is not a lemma outcome). Emits report.json + the reward file.
 Never trusts candidate logs.
 """
+import hashlib
 import json
 import os
 import re
@@ -446,14 +447,34 @@ def dispatch_reconcile(dispatch_path, log_path, snap_dir):
     if ok_entries and len(no_usage) > len(ok_entries) // 2:
         return False, ("majority of successful dispatches lack provider "
                        "usage — outputs cannot be provider-attested"), audit
-    # CONTENT BINDING: every admitted lemma's normalized statement must
-    # appear inside at least one recorded provider output text. The
-    # ledger stores output_sha256_12 per dispatch; the loop log rows
-    # store the admitted code. We verify via the loop log's proposal
-    # text hash vs ledger prompt hashes, and the lemma text vs the set
-    # of output texts reconstructed from the ledger is delegated to the
-    # loop-log rows that carry `code` (the admitted content).
-    audit["content_binding"] = "log-vs-ledger"
+    # CONTENT BINDING (v17): three-way verification. The runner logs,
+    # per round, prompt_sha256_12 (hash of the exact proposer prompt)
+    # and output_sha256_12 (hash of the extracted Lean candidate). The
+    # proxy ledger records the same hashes per upstream dispatch.
+    # Binding passes only if every admitted .lean file's SHA-256
+    # (first 12 hex) matches a ledger output hash — the scored file IS
+    # the candidate the provider returned. Any unbound admitted lemma
+    # forces the whole snapshot to score 0.
+    audit["content_binding"] = "unchecked"
+    output_hashes = {e.get("output_sha256_12") for e in entries
+                     if e.get("output_sha256_12")}
+    admitted_dir = os.path.join(snap_dir, "admitted")
+    if os.path.isdir(admitted_dir):
+        unbound = []
+        for fn in sorted(os.listdir(admitted_dir)):
+            if not fn.endswith(".lean"):
+                continue
+            body = open(os.path.join(admitted_dir, fn),
+                        encoding="utf-8", errors="replace").read()
+            body_sha = hashlib.sha256(body.encode()).hexdigest()[:12]
+            if body_sha not in output_hashes:
+                unbound.append((fn, body_sha))
+        if unbound and ok_entries:
+            audit["unbound_lemmas"] = [u[0] for u in unbound][:16]
+            return False, (f"{len(unbound)} admitted lemmas not bound to "
+                           "any provider output hash — content binding "
+                           "failed"), audit
+    audit["content_binding"] = "log-vs-ledger-verified"
     return True, "", audit
 
 
