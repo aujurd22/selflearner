@@ -37,4 +37,7 @@ disjoint scoring protocols and benchmarks. Note: both #197 and this
 proposal's first review run failed on OpenAI upstream 502/503 errors
 (2026-10-08/09) — an infrastructure outage also affecting #196; the
 proposal content was never evaluated. Re-submitting to trigger a
-fresh review.*
+fresh review (second attempt, 2026-10-09 17:22 UTC — the upstream
+502/503 outage has persisted 18+ hours across #196/#197/#199; run IDs
+37892472527, 37898294735, and the 09:22 UTC run). Maintenance has been
+notified via this thread and the OpenRSI issue tracker.*
