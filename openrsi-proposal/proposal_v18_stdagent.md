@@ -33,4 +33,8 @@
 
 *Complementary to #197 (visual architecture ablation): the two proposals
 share a research program but answer independent questions with
-disjoint scoring protocols and benchmarks.*
+disjoint scoring protocols and benchmarks. Note: both #197 and this
+proposal's first review run failed on OpenAI upstream 502/503 errors
+(2026-10-08/09) — an infrastructure outage also affecting #196; the
+proposal content was never evaluated. Re-submitting to trigger a
+fresh review.*
