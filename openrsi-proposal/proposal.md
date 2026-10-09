@@ -192,6 +192,27 @@ contradiction, root-readable key, missing-state branch, Work-side
 axiom gate. 2026-10-08 05:20: proxy non-auditability, pin semantics,
 48h outcome ambiguity — all addressed in this v14.
 
+## CHANGELOG (v17 — reviewer-audit responses, 2026-10-09)
+
+1. **Content binding enforced in code** (the "log existence != lemma
+   provenance" gap): the loop now logs per-round `prompt_sha256_12`
+   (hash of the exact proposer prompt) and `output_sha256_12` (hash of
+   the extracted Lean candidate); the Judge's `dispatch_reconcile`
+   requires every admitted .lean file's SHA-256 (first 12 hex) to
+   match a ledger output hash — any unbound lemma forces the snapshot
+   score to 0. Unit-tested (bound passes; unbound fails).
+2. **Budget unified to 60 dispatches** across runner default,
+   task.toml and instruction.md (the earlier 200/60 mismatch removed).
+3. **Six-loop aggregation script added** (`aggregate_comparison.py`):
+   consumes per-loop snapshots, applies budget check + the three
+   pre-registered metrics (verification yield / novel-yield rate per
+   100 dispatches / knowledge-growth efficiency), emits
+   comparison_results.json — the Judge deliverable is no longer a
+   single-snapshot score.
+4. **Per-OVERNIGHT_TAG dispatch ledger paths** (cross-loop ledger
+   sharing removed); runner copies the tagged ledger into the
+   snapshot.
+
 ## Metric definitions (v17 preview — reviewer-guided refinement)
 
 Three complementary indicators, pre-registered:
