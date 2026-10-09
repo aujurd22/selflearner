@@ -191,3 +191,24 @@ credential boundary, budget lifecycle. 2026-10-08 05:10: network text
 contradiction, root-readable key, missing-state branch, Work-side
 axiom gate. 2026-10-08 05:20: proxy non-auditability, pin semantics,
 48h outcome ambiguity — all addressed in this v14.
+
+## Metric definitions (v17 preview — reviewer-guided refinement)
+
+Three complementary indicators, pre-registered:
+
+| metric | question answered | role |
+|---|---|---|
+| verification yield | fraction of generated candidates passing independent formal verification | correctness of the funnel |
+| novel-yield rate | new, non-trivial, verified theorems per 100 real proposer dispatches | primary (budget-normalized) |
+| knowledge-growth efficiency | net reusable theorems per wall-clock hour / per USD | cost-normalized secondary |
+
+Novelty is adjudicated in three layers, with the third layer's error
+rate measured (not assumed):
+1. syntax/canonicalization dedup (exact + alpha-renamed duplicates);
+2. in-library similarity screen (restatements, equivalent formulations,
+   simple corollaries via RRF lexical+semantic retrieval);
+3. substantive-novelty adjudication (LLM judge over structure evidence)
+   — the judge is NOT treated as ground truth: a held-out probe set
+   plus human spot-checks measure its misjudgment rate, reported as
+   part of the results.
+
