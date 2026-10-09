@@ -1,0 +1,61 @@
+{
+ "summary": {
+  "baseline": [
+   1
+  ],
+  "enhanced": [
+   1
+  ]
+ },
+ "results": [
+  {
+   "problem": "aime_1983_p1",
+   "arm": "baseline",
+   "seed": 0,
+   "compiles": false
+  },
+  {
+   "problem": "aime_1983_p2",
+   "arm": "baseline",
+   "seed": 0,
+   "compiles": true
+  },
+  {
+   "problem": "aime_1983_p3",
+   "arm": "baseline",
+   "seed": 0,
+   "compiles": false
+  },
+  {
+   "problem": "aime_1984_p1",
+   "arm": "baseline",
+   "seed": 0,
+   "compiles": false
+  },
+  {
+   "problem": "aime_1983_p1",
+   "arm": "enhanced",
+   "seed": 0,
+   "compiles": false
+  },
+  {
+   "problem": "aime_1983_p2",
+   "arm": "enhanced",
+   "seed": 0,
+   "compiles": true
+  },
+  {
+   "problem": "aime_1983_p3",
+   "arm": "enhanced",
+   "seed": 0,
+   "compiles": false
+  },
+  {
+   "problem": "aime_1984_p1",
+   "arm": "enhanced",
+   "seed": 0,
+   "compiles": false
+  }
+ ],
+ "admitted_lemma_count": 2
+}
