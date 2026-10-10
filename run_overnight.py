@@ -78,6 +78,16 @@ def _start_proxy():
                ARK_API_KEY=key,  # proxy-process env only
                FLYLOOP_CALL_BUDGET=os.environ.get("FLYLOOP_CALL_BUDGET", "60"),
                ARK_MODEL=os.environ.get("ARK_MODEL", "glm-5.3-flash"))
+    # kill any stale proxy occupying port 8080 (prevents the new proxy
+    # from silently connecting to an old proxy with a different state)
+    import subprocess as _sp
+    _kill = _sp.run(
+        ["powershell", "-NoProfile", "-Command",
+         "$c = Get-NetTCPConnection -LocalPort 8080 -State Listen "
+         "-ErrorAction SilentlyContinue | Select-Object -First 1; "
+         "if ($c -and $c.OwningProcess -ne 0) { "
+         "Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue }"],
+        capture_output=True, timeout=15)
     proc = subprocess.Popen(
         [sys.executable, os.path.join(ROOT, "ark_proxy.py")],
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
