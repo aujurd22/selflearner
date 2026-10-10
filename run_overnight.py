@@ -121,6 +121,7 @@ def run(rounds=0, effort="low", deadline_h=9.0):
 
     con = sqlite3.connect(pc.DB)
     lp = log_path()
+    tag = os.environ.get('OVERNIGHT_TAG', '')
     done = 0
     if os.path.exists(lp):
         with open(lp, encoding="utf-8") as f:
@@ -189,6 +190,7 @@ def run(rounds=0, effort="low", deadline_h=9.0):
                            f"summary{os.environ.get('OVERNIGHT_TAG', '')}.json"),
               "w") as f:
         json.dump(summary, f, indent=1)
+    tag = os.environ.get('OVERNIGHT_TAG', '')
     # deliver the full scored snapshot (v18 contract):
     #   admitted/*.lean  + log.jsonl + library_diff.json + dispatch.jsonl
     # the Judge cross-checks the spend chain against the dispatch ledger
