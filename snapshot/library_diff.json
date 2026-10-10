@@ -1,0 +1,14 @@
+[
+ {
+  "name": "source_inter_preimage_target",
+  "statement": "import Mathlib theorem source_inter_preimage_target {α β : Type*} (e : PartialEquiv α β) : e.source ∩ e ⁻¹' e.target = e.source := by"
+ },
+ {
+  "name": "mk_biUnion_le_const",
+  "statement": "import Mathlib theorem mk_biUnion_le_const {ι α : Type*} {s : Set ι} (hs : s.Nonempty) (t : Set α) : (⋃ i ∈ s, t) = t := by"
+ },
+ {
+  "name": "selflearner",
+  "statement": "import Mathlib.Algebra.Field.Basic theorem selflearner (K : Type*) [Field K] (a : K) (ha : a ≠ 0) : a * a⁻¹ = 1 := mul_inv_cancel₀ ha"
+ }
+]

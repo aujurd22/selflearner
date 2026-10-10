@@ -119,9 +119,19 @@ def sample_seeds(con, k=4):
     Domain choice goes through python's random so a run seed reproduces."""
     global _FILES
     if _FILES is None:
-        _FILES = [r[0] for r in con.execute(
-            "SELECT file FROM thm WHERE proof != '' AND kind='theorem' "
-            "GROUP BY file HAVING COUNT(*) >= 20")]
+        focus = os.environ.get("SELFLEARNER_FOCUS", "")
+        if focus:
+            # targeted sampling: only files matching the focus keyword
+            _FILES = [r[0] for r in con.execute(
+                "SELECT file FROM thm WHERE proof != '' AND kind='theorem' "
+                "AND (statement LIKE ? OR name LIKE ?) "
+                "GROUP BY file HAVING COUNT(*) >= 5",
+                (f"%{focus}%", f"%{focus}%"))]
+            print(f"[focus] {focus}: {len(_FILES)} files", flush=True)
+        if not _FILES:
+            _FILES = [r[0] for r in con.execute(
+                "SELECT file FROM thm WHERE proof != '' AND kind='theorem' "
+                "GROUP BY file HAVING COUNT(*) >= 20")]
     file_ = random.choice(_FILES)
     rows = con.execute(
         """SELECT name, statement, SUBSTR(proof, 1, 300) FROM thm
